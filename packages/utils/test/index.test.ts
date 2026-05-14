@@ -213,13 +213,13 @@ describe("getPageNumbers", () => {
     const result = getPageNumbers(2, 10);
     expect(result[0]).toBe(1);
     expect(result).toContain("...");
-    expect(result[result.length - 1]).toBe(10);
+    expect(result.at(-1)).toBe(10);
   });
 
   it("shows ellipsis in middle", () => {
     const result = getPageNumbers(5, 10);
     expect(result[1]).toBe("...");
-    expect(result[result.length - 2]).toBe("...");
+    expect(result.at(-2)).toBe("...");
   });
 });
 

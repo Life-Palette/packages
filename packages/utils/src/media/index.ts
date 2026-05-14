@@ -42,11 +42,15 @@ export interface FileParseResult extends FileData {
  */
 function getLivePhotoVideoUrl(file: FileData): string {
   const lv = file?.live_photo_video;
-  if (!lv) return "";
+  if (!lv) {
+    return "";
+  }
   const variants = lv.video_variants;
   if (Array.isArray(variants) && variants.length) {
     const v1080 = variants.find((v) => v.quality === "1080p");
-    if (v1080?.url) return v1080.url;
+    if (v1080?.url) {
+      return v1080.url;
+    }
   }
   return lv.url || "";
 }
@@ -160,18 +164,22 @@ export function parseFileName(fileName: string): {
 /**
  * 检测文件列表中的 Live Photo 配对（同名 image + video）
  */
-export function detectLivePhotoPairs<
-  T extends { name: string; type?: string },
->(files: T[]): Array<{ image: T; video: T }> {
+export function detectLivePhotoPairs<T extends { name: string; type?: string }>(
+  files: T[]
+): Array<{ image: T; video: T }> {
   const pairs: Array<{ image: T; video: T }> = [];
   const usedIndices = new Set<number>();
 
   files.forEach((file, idx) => {
     const { baseName, isVideo: isVid } = parseFileName(file.name);
-    if (!isVid) return;
+    if (!isVid) {
+      return;
+    }
 
     const imageIdx = files.findIndex((f, i) => {
-      if (i === idx || usedIndices.has(i)) return false;
+      if (i === idx || usedIndices.has(i)) {
+        return false;
+      }
       const info = parseFileName(f.name);
       return info.baseName === baseName && !info.isVideo;
     });

@@ -1,6 +1,5 @@
 {
   "name": "life-palette-packages",
-  "private": true,
   "description": "Life Palette packages monorepo",
   "repository": "https://github.com/Life-Palette/packages",
   "bugs": "https://github.com/Life-Palette/packages/issues",

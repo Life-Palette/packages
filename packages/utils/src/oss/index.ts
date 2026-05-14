@@ -62,12 +62,12 @@ export interface UploadOptions {
 
 /** uploadToOSS 的返回值：仅上传到 OSS，不创建 DB 记录 */
 export interface UploadToOSSResult {
-  key: string;
-  md5: string;
   file_name: string;
   file_size: number;
-  upload_id?: string;
+  key: string;
+  md5: string;
   parts?: CompletePart[];
+  upload_id?: string;
 }
 
 export interface UploaderConfig {
@@ -108,6 +108,8 @@ type InitResponse =
   | InitMultipartResponse;
 
 // ============ 工厂函数 ============
+
+const RE_HOST_PREFIX = /^https?:\/\/[^/]+\//;
 
 export function createOssUploader(config: UploaderConfig) {
   const {
@@ -164,7 +166,9 @@ export function createOssUploader(config: UploaderConfig) {
       file_size: fileSize,
       md5,
     };
-    if (chunk) body.chunk_size = chunk;
+    if (chunk) {
+      body.chunk_size = chunk;
+    }
     return post<InitResponse>("/file/upload/init", body);
   }
 
@@ -204,11 +208,14 @@ export function createOssUploader(config: UploaderConfig) {
       const reader = new FileReader();
       reader.onerror = () => reject(new Error("文件读取失败"));
       reader.onload = (e) => {
-        spark.append(e.target!.result as ArrayBuffer);
+        spark.append(e.target?.result as ArrayBuffer);
         cur++;
         onProgress?.(Math.round((cur / chunks) * 100));
-        if (cur < chunks) loadNext();
-        else resolve(spark.end());
+        if (cur < chunks) {
+          loadNext();
+        } else {
+          resolve(spark.end());
+        }
       };
       function loadNext() {
         const start = cur * size;
@@ -234,7 +241,9 @@ export function createOssUploader(config: UploaderConfig) {
       onProgress?.(100);
       return init.file;
     }
-    if (init.mode !== "simple") throw new Error("Unexpected upload mode");
+    if (init.mode !== "simple") {
+      throw new Error("Unexpected upload mode");
+    }
 
     const t = init.token;
     onProgress?.(30);
@@ -250,8 +259,9 @@ export function createOssUploader(config: UploaderConfig) {
     await new Promise<void>((resolve, reject) => {
       const xhr = new XMLHttpRequest();
       xhr.upload.onprogress = (e) => {
-        if (e.lengthComputable)
+        if (e.lengthComputable) {
           onProgress?.(30 + Math.round((e.loaded / e.total) * 50));
+        }
       };
       xhr.onload = () =>
         xhr.status === 200
@@ -289,7 +299,9 @@ export function createOssUploader(config: UploaderConfig) {
       onProgress?.(100);
       return init.file;
     }
-    if (init.mode !== "multipart") throw new Error("Unexpected upload mode");
+    if (init.mode !== "multipart") {
+      throw new Error("Unexpected upload mode");
+    }
 
     const {
       upload_id: uid,
@@ -303,7 +315,9 @@ export function createOssUploader(config: UploaderConfig) {
     );
 
     let urls: { part_number: number; url: string }[] = [];
-    if (pending.length > 0) urls = (await getPartUrls(key, uid, pending)).urls;
+    if (pending.length > 0) {
+      urls = (await getPartUrls(key, uid, pending)).urls;
+    }
 
     const parts: CompletePart[] = [];
     let uploaded = 0;
@@ -312,14 +326,18 @@ export function createOssUploader(config: UploaderConfig) {
       const start = (pn - 1) * chunkSize;
       const chunk = file.slice(start, Math.min(start + chunkSize, file.size));
       const urlInfo = urls.find((u) => u.part_number === pn);
-      if (!urlInfo) throw new Error(`No URL for part ${pn}`);
+      if (!urlInfo) {
+        throw new Error(`No URL for part ${pn}`);
+      }
 
       const res = await fetch(urlInfo.url, {
         method: "PUT",
         headers: { "Content-Type": "application/json" },
         body: chunk,
       });
-      if (!res.ok) throw new Error(`Failed to upload part ${pn}`);
+      if (!res.ok) {
+        throw new Error(`Failed to upload part ${pn}`);
+      }
 
       const etag = res.headers.get("ETag") || "";
       parts.push({ part_number: pn, etag: etag.replace(/"/g, "") });
@@ -346,7 +364,9 @@ export function createOssUploader(config: UploaderConfig) {
 
   // --- 图片压缩 ---
   async function compress(file: File, maxSizeMB = 1): Promise<File> {
-    if (!file.type.startsWith("image/")) return file;
+    if (!file.type.startsWith("image/")) {
+      return file;
+    }
     try {
       const { default: imageCompression } = await import(
         "browser-image-compression"
@@ -400,7 +420,7 @@ export function createOssUploader(config: UploaderConfig) {
     if (init.exists) {
       onProgress?.({ stage: "complete", percent: 100 });
       return {
-        key: init.file.url.replace(/^https?:\/\/[^/]+\//, ""),
+        key: init.file.url.replace(RE_HOST_PREFIX, ""),
         md5: init.file.file_md5,
         file_name: processed.name,
         file_size: processed.size,
@@ -420,11 +440,12 @@ export function createOssUploader(config: UploaderConfig) {
       await new Promise<void>((resolve, reject) => {
         const xhr = new XMLHttpRequest();
         xhr.upload.onprogress = (e) => {
-          if (e.lengthComputable)
+          if (e.lengthComputable) {
             onProgress?.({
               stage: "upload",
               percent: Math.round((e.loaded / e.total) * 90),
             });
+          }
         };
         xhr.onload = () =>
           xhr.status === 200
@@ -457,7 +478,9 @@ export function createOssUploader(config: UploaderConfig) {
     );
 
     let urls: { part_number: number; url: string }[] = [];
-    if (pending.length > 0) urls = (await getPartUrls(key, uid, pending)).urls;
+    if (pending.length > 0) {
+      urls = (await getPartUrls(key, uid, pending)).urls;
+    }
 
     const parts: CompletePart[] = [];
     let uploaded = 0;
@@ -468,9 +491,13 @@ export function createOssUploader(config: UploaderConfig) {
         Math.min(start + chunkSize, processed.size)
       );
       const urlInfo = urls.find((u) => u.part_number === pn);
-      if (!urlInfo) throw new Error(`No URL for part ${pn}`);
+      if (!urlInfo) {
+        throw new Error(`No URL for part ${pn}`);
+      }
       const res = await fetch(urlInfo.url, { method: "PUT", body: chunk });
-      if (!res.ok) throw new Error(`Failed to upload part ${pn}`);
+      if (!res.ok) {
+        throw new Error(`Failed to upload part ${pn}`);
+      }
       const etag = res.headers.get("ETag") || "";
       parts.push({ part_number: pn, etag: etag.replace(/"/g, "") });
       uploaded++;
@@ -520,7 +547,8 @@ export function createOssUploader(config: UploaderConfig) {
     );
 
     onProgress?.({ stage: "upload", percent: 0 });
-    const fn = processed.size >= multipartThreshold ? multiUpload : simpleUpload;
+    const fn =
+      processed.size >= multipartThreshold ? multiUpload : simpleUpload;
     const result = await fn(
       processed,
       md5,
@@ -547,21 +575,27 @@ export function createOssUploader(config: UploaderConfig) {
   }
 
   async function associateLivePhotos(results: OSSFile[]): Promise<void> {
-    const byName = new Map<
-      string,
-      { images: OSSFile[]; videos: OSSFile[] }
-    >();
+    const byName = new Map<string, { images: OSSFile[]; videos: OSSFile[] }>();
     for (const f of results) {
       const { baseName, isVideo } = getFileExtName(f.name);
-      if (!byName.has(baseName))
+      if (!byName.has(baseName)) {
         byName.set(baseName, { images: [], videos: [] });
-      const group = byName.get(baseName)!;
-      if (isVideo) group.videos.push(f);
-      else group.images.push(f);
+      }
+      const group = byName.get(baseName);
+      if (!group) {
+        continue;
+      }
+      if (isVideo) {
+        group.videos.push(f);
+      } else {
+        group.images.push(f);
+      }
     }
 
     for (const [, { images, videos }] of byName) {
-      if (images.length === 0 || videos.length === 0) continue;
+      if (images.length === 0 || videos.length === 0) {
+        continue;
+      }
       const image = images[0];
       const video = videos[0];
       try {
@@ -593,11 +627,14 @@ export function createOssUploader(config: UploaderConfig) {
         } catch (e) {
           lastErr = e as Error;
           retries++;
-          if (retries < maxRetries)
+          if (retries < maxRetries) {
             await new Promise((r) => setTimeout(r, 1000 * retries));
+          }
         }
       }
-      if (retries >= maxRetries && lastErr) throw lastErr;
+      if (retries >= maxRetries && lastErr) {
+        throw lastErr;
+      }
     }
     await associateLivePhotos(results);
     return results;

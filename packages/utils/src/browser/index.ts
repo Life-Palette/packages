@@ -53,8 +53,11 @@ export function selectFile(
 
     if (capture !== undefined) {
       if (typeof capture === "boolean") {
-        if (capture) input.setAttribute("capture", "");
-        else input.removeAttribute("capture");
+        if (capture) {
+          input.setAttribute("capture", "");
+        } else {
+          input.removeAttribute("capture");
+        }
       } else {
         input.setAttribute("capture", capture);
       }
@@ -143,20 +146,34 @@ export async function preloadImages(srcs: string[]): Promise<void> {
   await Promise.all(srcs.map(preloadImage));
 }
 
+interface NetworkInformation {
+  downlink?: number;
+  effectiveType?: string;
+}
+
 /**
  * 检测是否为慢速网络
  */
 export function isSlowNetwork(): boolean {
-  const connection =
-    (navigator as any).connection ||
-    (navigator as any).mozConnection ||
-    (navigator as any).webkitConnection;
+  const nav = navigator as unknown as Record<string, unknown>;
+  const connection = (nav.connection ||
+    nav.mozConnection ||
+    nav.webkitConnection) as NetworkInformation | undefined;
 
-  if (!connection) return false;
+  if (!connection) {
+    return false;
+  }
 
   const slowTypes = ["slow-2g", "2g", "3g"];
-  if (slowTypes.includes(connection.effectiveType)) return true;
-  if (connection.downlink && connection.downlink < 1) return true;
+  if (
+    connection.effectiveType &&
+    slowTypes.includes(connection.effectiveType)
+  ) {
+    return true;
+  }
+  if (connection.downlink && connection.downlink < 1) {
+    return true;
+  }
 
   return false;
 }
@@ -166,8 +183,12 @@ export function isSlowNetwork(): boolean {
  */
 export function getDeviceType(): "mobile" | "tablet" | "desktop" {
   const width = window.innerWidth;
-  if (width < 768) return "mobile";
-  if (width < 1024) return "tablet";
+  if (width < 768) {
+    return "mobile";
+  }
+  if (width < 1024) {
+    return "tablet";
+  }
   return "desktop";
 }
 

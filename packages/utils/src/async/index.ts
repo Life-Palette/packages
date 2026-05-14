@@ -12,13 +12,15 @@ export function sleep(ms = 1000): Promise<void> {
 /**
  * 防抖
  */
-export function debounce<T extends (...args: any[]) => any>(
+export function debounce<T extends (...args: never[]) => unknown>(
   func: T,
   wait: number
 ): (...args: Parameters<T>) => void {
   let timer: ReturnType<typeof setTimeout> | null = null;
   return (...args: Parameters<T>) => {
-    if (timer) clearTimeout(timer);
+    if (timer) {
+      clearTimeout(timer);
+    }
     timer = setTimeout(() => func(...args), wait);
   };
 }
@@ -26,13 +28,15 @@ export function debounce<T extends (...args: any[]) => any>(
 /**
  * 节流
  */
-export function throttle<T extends (...args: any[]) => any>(
+export function throttle<T extends (...args: never[]) => unknown>(
   func: T,
   limit: number
 ): (...args: Parameters<T>) => void {
   let inThrottle = false;
   return (...args: Parameters<T>) => {
-    if (inThrottle) return;
+    if (inThrottle) {
+      return;
+    }
     func(...args);
     inThrottle = true;
     setTimeout(() => {

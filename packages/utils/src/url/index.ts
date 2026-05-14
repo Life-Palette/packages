@@ -8,15 +8,17 @@ export function parseUrl(fullPath: string): {
   path: string;
   query: Record<string, string>;
 } {
-  const [path, queryStr] = fullPath.split("?");
+  const [path = "", queryStr] = fullPath.split("?");
   const name = path.slice(path.lastIndexOf("/") + 1);
   const query: Record<string, string> = {};
-  queryStr
-    ?.split("&")
-    .map((kv) => kv.split("="))
-    .forEach(([k, v]) => {
-      if (k) query[k] = v ?? "";
-    });
+  if (queryStr) {
+    for (const kv of queryStr.split("&")) {
+      const [k, v] = kv.split("=");
+      if (k) {
+        query[k] = v ?? "";
+      }
+    }
+  }
   return { name, path, query };
 }
 

@@ -27,7 +27,9 @@ const RE_MULTI_SPACE = /\s+/g;
  * 去除 Markdown 语法、保留可读纯文本（用于列表摘要）
  */
 export function stripMarkdown(content: string): string {
-  if (!content) return "";
+  if (!content) {
+    return "";
+  }
   return content
     .replace(RE_FRONTMATTER, "")
     .replace(RE_HTML_COMMENT, "")
