@@ -1,6 +1,6 @@
 {
   "name": "@life-palette/utils",
-  "version": "0.0.4",
+  "version": "0.1.0",
   "description": "Life Palette 公共工具库：OSS 上传、媒体处理、日期格式化、MD5、Cookie、分页等",
   "repository": {
     "type": "git",

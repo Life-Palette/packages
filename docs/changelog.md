@@ -1,5 +1,22 @@
 # Changelog
 
+## 0.1.0
+
+### Minor Changes
+
+- [`b31afab`](https://github.com/Life-Palette/packages/commit/b31afabb8f1d08930d0771ed68133ee1103a409f) Thanks [@IceyWu](https://github.com/IceyWu)! - 重构 utils 包：从 go-shadcn-admin、LifePalette-Web、lp-weapp 提取公共方法
+
+  - 新增 `async` 模块：sleep、debounce、throttle
+  - 新增 `browser` 模块：selectFile、readFile、preloadImage(s)、isSlowNetwork、getDeviceType、supportsWebP
+  - 新增 `date` 模块：formatRelativeTime、formatDistanceToNow
+  - 新增 `markdown` 模块：stripMarkdown
+  - 新增 `media` 模块：fileParse、isVideo、isLivePhoto、getVideoThumbnailUrl、generateOssImageParams、parseFileName、detectLivePhotoPairs
+  - 新增 `oss` 模块：createOssUploader（秒传/普通/分片/批量上传/实况照片关联）
+  - 新增 `pagination` 模块：getPageNumbers
+  - 新增 `url` 模块：parseUrl、restoreUrl、isFastClick
+  - 移除旧 `file` 模块（功能已拆分到 browser/media）
+  - 移除 `@iceywu/utils` 依赖
+
 ## v0.0.4
 
 [compare changes](https://github.com/Life-Palette/packages/compare/v0.0.3...v0.0.4)
@@ -27,7 +44,7 @@
 
 ### 🚀 Enhancements
 
-- 增加type导出 ([444a3e9](https://github.com/Life-Palette/packages/commit/444a3e9))
+- 增加 type 导出 ([444a3e9](https://github.com/Life-Palette/packages/commit/444a3e9))
 
 ### 🏡 Chore
 
