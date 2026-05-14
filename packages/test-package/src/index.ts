@@ -1,8 +1,8 @@
 import {
-  selectFile,
-  readFile,
   fileParse,
   isIphoneImg,
+  readFile,
+  selectFile,
 } from "@life-palette/utils";
 
 /**

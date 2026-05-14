@@ -14,7 +14,7 @@ try {
   // 更新根目录的版本
   const rootPkg = JSON.parse(readFileSync(rootPkgPath, "utf8"));
   rootPkg.version = version;
-  writeFileSync(rootPkgPath, JSON.stringify(rootPkg, null, 2) + "\n");
+  writeFileSync(rootPkgPath, `${JSON.stringify(rootPkg, null, 2)}\n`);
 
   console.log(`✅ Version synced to ${version}`);
 } catch (error) {

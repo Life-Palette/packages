@@ -1,44 +1,6 @@
-<template>
-  <div class="demo-container">
-    <div class="card">
-      <div class="button-group">
-        <button @click="handleSelectSingleImage">Single Image</button>
-        <button @click="handleSelectMultiImages">Multiple Images</button>
-        <button @click="handleSelectDocuments">Documents</button>
-        <button @click="handleSelectAny">Any File</button>
-      </div>
-
-      <div v-if="selectedFiles.length > 0" class="result">
-        <div class="files-list">
-          <div
-            v-for="(file, index) in selectedFiles"
-            :key="index"
-            class="file-item"
-          >
-            <div class="file-info">
-              <div class="file-name">{{ file.name }}</div>
-              <div class="file-size">{{ formatFileSize(file.size) }}</div>
-            </div>
-          </div>
-        </div>
-
-        <div v-if="previews.length > 0" class="preview">
-          <img
-            v-for="(preview, index) in previews"
-            :key="index"
-            :src="preview"
-            :alt="`Preview ${index + 1}`"
-            class="preview-img"
-          />
-        </div>
-      </div>
-    </div>
-  </div>
-</template>
-
 <script setup lang="ts">
+import { readFile, selectFile } from "@life-palette/utils";
 import { ref } from "vue";
-import { selectFile, readFile } from "@life-palette/utils";
 
 const selectedFiles = ref<File[]>([]);
 const previews = ref<string[]>([]);
@@ -91,22 +53,45 @@ const processFiles = async (files: FileList | null) => {
     }
   }
 };
-
-const formatFileSize = (bytes: number): string => {
-  if (bytes === 0) return "0 Bytes";
-  const k = 1024;
-  const sizes = ["Bytes", "KB", "MB", "GB"];
-  const i = Math.floor(Math.log(bytes) / Math.log(k));
-  return Math.round((bytes / Math.pow(k, i)) * 100) / 100 + " " + sizes[i];
-};
-
-const getFileExtension = (filename: string): string => {
-  const ext = filename
-    .slice(((filename.lastIndexOf(".") - 1) >>> 0) + 2)
-    .toUpperCase();
-  return ext.slice(0, 3) || "FILE";
-};
 </script>
+
+<template>
+  <div class="demo-container">
+    <div class="card">
+      <div class="button-group">
+        <button @click="handleSelectSingleImage">Single Image</button>
+        <button @click="handleSelectMultiImages">Multiple Images</button>
+        <button @click="handleSelectDocuments">Documents</button>
+        <button @click="handleSelectAny">Any File</button>
+      </div>
+
+      <div v-if="selectedFiles.length > 0" class="result">
+        <div class="files-list">
+          <div
+            v-for="(file, index) in selectedFiles"
+            :key="index"
+            class="file-item"
+          >
+            <div class="file-info">
+              <div class="file-name">{{ file.name }}</div>
+              <div class="file-size">{{ file.size }} bytes</div>
+            </div>
+          </div>
+        </div>
+
+        <div v-if="previews.length > 0" class="preview">
+          <img
+            v-for="(preview, index) in previews"
+            :key="index"
+            :src="preview"
+            :alt="`Preview ${index + 1}`"
+            class="preview-img"
+          />
+        </div>
+      </div>
+    </div>
+  </div>
+</template>
 
 <style scoped>
 .demo-container {

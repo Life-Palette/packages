@@ -1,0 +1,34 @@
+﻿{
+  "$schema": "./node_modules/@biomejs/biome/configuration_schema.json",
+  "extends": ["ultracite/biome/core"],
+  "linter": {
+    "rules": {
+      "performance": {
+        "noBarrelFile": "off"
+      },
+      "style": {
+        "useFilenamingConvention": "off"
+      },
+      "suspicious": {
+        "noExplicitAny": "warn"
+      },
+      "correctness": {
+        "noUnusedVariables": "off",
+        "noUnusedImports": "off"
+      }
+    }
+  },
+  "overrides": [
+    {
+      "includes": ["**/*.ts", "**/*.js", "**/*.mjs"],
+      "linter": {
+        "rules": {
+          "correctness": {
+            "noUnusedVariables": "warn",
+            "noUnusedImports": "warn"
+          }
+        }
+      }
+    }
+  ]
+}

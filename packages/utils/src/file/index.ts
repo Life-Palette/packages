@@ -1,4 +1,4 @@
-import { customDestr, getObjVal } from "@iceywu/utils";
+import { customDestr, get } from "@iceywu/utils";
 
 // 定义 Exif 数据的类型
 export interface ExifData {
@@ -9,12 +9,12 @@ export interface ExifData {
 
 // 定义 data 对象的类型
 export interface FileData {
-  url?: string;
-  type?: string;
-  videoSrc?: string | null;
   cover?: string;
-  fromIphone?: boolean;
   exif?: string;
+  fromIphone?: boolean;
+  type?: string;
+  url?: string;
+  videoSrc?: string | null;
   [key: string]: any;
 }
 
@@ -30,9 +30,9 @@ export interface ParseOptions {
  * @returns 如果是苹果设备拍摄的图片返回 true，否则返回 false
  */
 export function isIphoneImg(data: FileData): boolean {
-  const exif = getObjVal(data, "exif", "{}");
+  const exif = get(data, "exif", "{}");
   const exifData = customDestr(exif, { customVal: {} }) as ExifData;
-  return getObjVal(exifData, "Make.value") === "Apple";
+  return get(exifData, "Make.value") === "Apple";
 }
 
 /**
@@ -67,14 +67,14 @@ export function fileParse(data: FileData, _options?: ParseOptions): FileData {
       baseSrc = `${url}?x-oss-process=image/format,${format}`;
       thumbnailUrl = `${file}?x-oss-process=image/resize,l_800/format,${format}`;
     }
-    addInfo["baseSrc"] = baseSrc;
-    addInfo["thumbnailUrl"] = thumbnailUrl;
+    addInfo.baseSrc = baseSrc;
+    addInfo.thumbnailUrl = thumbnailUrl;
   } else if (fileType === "VIDEO") {
     const coverUrl =
       cover ||
       `${url}?x-oss-process=video/snapshot,t_7000,f_${format},w_0,h_0,m_fast`;
 
-    addInfo["cover"] = coverUrl;
+    addInfo.cover = coverUrl;
   }
 
   const baseData: FileData & { fileType: string } = {
@@ -92,14 +92,14 @@ export function fileParse(data: FileData, _options?: ParseOptions): FileData {
 export interface FileSelectOptions {
   /** 接受的文件类型，如 'image/*', '.jpg,.png' 等 */
   accept?: string;
-  /** 是否允许多选 */
-  multiple?: boolean;
   /** 是否捕获（用于移动设备） */
   capture?: boolean | string;
-  /** 选择文件后的回调函数 */
-  onChange?: (files: FileList | null) => void;
   /** 文件选择器的 ID */
   id?: string;
+  /** 是否允许多选 */
+  multiple?: boolean;
+  /** 选择文件后的回调函数 */
+  onChange?: (files: FileList | null) => void;
 }
 
 /**
@@ -126,12 +126,12 @@ export interface FileSelectOptions {
  * ```
  */
 export function selectFile(
-  options: FileSelectOptions = {},
+  options: FileSelectOptions = {}
 ): Promise<FileList | null> {
   // 检查是否在浏览器环境
   if (typeof document === "undefined") {
     return Promise.reject(
-      new Error("selectFile() can only be used in browser environment"),
+      new Error("selectFile() can only be used in browser environment")
     );
   }
 
@@ -224,12 +224,12 @@ export function selectFile(
  */
 export function readFile(
   file: File,
-  readAs: "dataURL" | "text" | "arrayBuffer" | "binaryString" = "dataURL",
+  readAs: "dataURL" | "text" | "arrayBuffer" | "binaryString" = "dataURL"
 ): Promise<string | ArrayBuffer | null> {
   // 检查是否在浏览器环境
   if (typeof FileReader === "undefined") {
     return Promise.reject(
-      new Error("readFile() can only be used in browser environment"),
+      new Error("readFile() can only be used in browser environment")
     );
   }
 

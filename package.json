@@ -10,8 +10,8 @@
     "build": "pnpm -r --filter='./packages/*' run build",
     "dev": "pnpm --parallel -r run dev",
     "test": "pnpm -r run test",
-    "lint": "eslint . && prettier -c .",
-    "lint:fix": "eslint . --fix && prettier -w .",
+    "lint": "ultracite check",
+    "lint:fix": "ultracite fix",
     "play": "pnpm --filter playground dev",
     "docs:dev": "pnpm --filter docs dev",
     "docs:build": "pnpm --filter docs build",
@@ -21,17 +21,11 @@
     "sync-version": "node scripts/sync-version.js"
   },
   "devDependencies": {
-    "@types/node": "^24.9.1",
+    "@biomejs/biome": "^2.4.15",
+    "@types/node": "^25.7.0",
     "changelogen": "^0.6.2",
-    "eslint": "^9.38.0",
-    "eslint-config-unjs": "^0.5.0",
-    "prettier": "^3.6.2",
-    "typescript": "^5.9.3"
+    "typescript": "^6.0.3",
+    "ultracite": "^7.7.0"
   },
-  "packageManager": "pnpm@10.18.3",
-  "pnpm": {
-    "overrides": {
-      "vite": "npm:rolldown-vite@7.1.14"
-    }
-  }
+  "packageManager": "pnpm@11.1.1"
 }

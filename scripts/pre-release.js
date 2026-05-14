@@ -9,7 +9,7 @@ try {
   const status = execSync("git status --porcelain", { encoding: "utf8" });
   if (status) {
     console.error(
-      "❌ You have uncommitted changes. Please commit or stash them first.",
+      "❌ You have uncommitted changes. Please commit or stash them first."
     );
     process.exit(1);
   }
