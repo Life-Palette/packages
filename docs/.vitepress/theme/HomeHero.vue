@@ -1,4 +1,6 @@
-<script setup lang="ts"></script>
+<script setup lang="ts">
+defineOptions({ name: "HomeHero" });
+</script>
 
 <template>
   <div class="hero-artistic">
@@ -32,26 +34,11 @@
   transform: translate(-50%, -50%);
   width: 700px;
   height: 700px;
-  background: radial-gradient(
-      ellipse at 30% 35%,
-      rgba(255, 180, 130, 0.25) 0%,
-      transparent 50%
-    ),
-    radial-gradient(
-      ellipse at 70% 25%,
-      rgba(180, 225, 180, 0.22) 0%,
-      transparent 45%
-    ),
-    radial-gradient(
-      ellipse at 55% 70%,
-      rgba(170, 200, 245, 0.18) 0%,
-      transparent 50%
-    ),
-    radial-gradient(
-      ellipse at 80% 55%,
-      rgba(240, 190, 220, 0.15) 0%,
-      transparent 40%
-    );
+  background:
+    radial-gradient(ellipse at 30% 35%, rgba(255, 180, 130, 0.25) 0%, transparent 50%),
+    radial-gradient(ellipse at 70% 25%, rgba(180, 225, 180, 0.22) 0%, transparent 45%),
+    radial-gradient(ellipse at 55% 70%, rgba(170, 200, 245, 0.18) 0%, transparent 50%),
+    radial-gradient(ellipse at 80% 55%, rgba(240, 190, 220, 0.15) 0%, transparent 40%);
   filter: blur(50px);
   pointer-events: none;
   border-radius: 50%;
@@ -71,29 +58,16 @@
   font-size: 120px;
   font-weight: 200;
   letter-spacing: 0.15em;
-  color: var(--vp-c-text-1);
   line-height: 1.1;
-  font-family: "STKaiti", "KaiTi", "楷体", serif;
-  background: linear-gradient(
-    135deg,
-    #6b5040 0%,
-    #8b6b4a 30%,
-    #5a7a6a 60%,
-    #6a7a9a 100%
-  );
+  font-family: "STKaiti", "KaiTi", serif;
+  background: linear-gradient(135deg, #6b5040 0%, #8b6b4a 30%, #5a7a6a 60%, #6a7a9a 100%);
   -webkit-background-clip: text;
   -webkit-text-fill-color: transparent;
   background-clip: text;
 }
 
 .dark .hero-chinese {
-  background: linear-gradient(
-    135deg,
-    #d4b896 0%,
-    #c4a67e 30%,
-    #9abfad 60%,
-    #a0b8d0 100%
-  );
+  background: linear-gradient(135deg, #d4b896 0%, #c4a67e 30%, #9abfad 60%, #a0b8d0 100%);
   -webkit-background-clip: text;
   -webkit-text-fill-color: transparent;
   background-clip: text;
