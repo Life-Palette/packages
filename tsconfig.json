@@ -15,5 +15,6 @@
     "noImplicitOverride": true,
     "skipLibCheck": true,
     "noEmit": true
-  }
+  },
+  "exclude": ["node_modules", "**/dist", "**/node_modules"]
 }
