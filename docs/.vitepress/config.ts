@@ -24,7 +24,7 @@ export default defineConfig({
       },
     ],
     socialLinks: [
-      { icon: "github", link: "https://github.com/IceyWu/life-palette-utils" },
+      { icon: "github", link: "https://github.com/Life-Palette/packages" },
     ],
   },
 });

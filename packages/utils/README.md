@@ -2,7 +2,7 @@
 
 [![npm version](https://img.shields.io/npm/v/@life-palette/utils?color=yellow)](https://npmjs.com/package/@life-palette/utils)
 [![npm downloads](https://img.shields.io/npm/dm/@life-palette/utils?color=yellow)](https://npm.chart.dev/@life-palette/utils)
-[![License](https://img.shields.io/npm/l/@life-palette/utils)](https://github.com/IceyWu/life-palette-utils/blob/main/LICENSE)
+[![License](https://img.shields.io/npm/l/@life-palette/utils)](https://github.com/Life-Palette/packages/blob/main/LICENSE)
 
 一个实用的工具库，提供文件处理、文件选择等常用功能。
 
@@ -214,7 +214,7 @@ interface ParseOptions {
 
 ```bash
 # 克隆仓库
-git clone https://github.com/IceyWu/life-palette-utils.git
+git clone https://github.com/Life-Palette/packages.git
 cd life-palette-utils
 
 # 安装依赖
@@ -280,9 +280,9 @@ const handleSelectFile = async () => {
 ## 相关链接
 
 - [完整文档](https://life-palette-utils.netlify.app)
-- [GitHub 仓库](https://github.com/IceyWu/life-palette-utils)
+- [GitHub 仓库](https://github.com/Life-Palette/packages)
 - [更新日志](https://life-palette-utils.netlify.app/changelog.html)
-- [问题反馈](https://github.com/IceyWu/life-palette-utils/issues)
+- [问题反馈](https://github.com/Life-Palette/packages/issues)
 
 ## 开发
 
@@ -302,4 +302,4 @@ pnpm dev
 
 ## License
 
-[MIT](https://github.com/IceyWu/life-palette-utils/blob/main/LICENSE) License © 2025 [IceyWu](https://github.com/IceyWu)
+[MIT](https://github.com/Life-Palette/packages/blob/main/LICENSE) License © 2025 [IceyWu](https://github.com/IceyWu)

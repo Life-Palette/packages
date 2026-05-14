@@ -109,7 +109,7 @@ npm whoami
 git remote -v
 
 # 如果需要，更新 remote
-git remote set-url origin https://github.com/IceyWu/life-palette-utils.git
+git remote set-url origin https://github.com/Life-Palette/packages.git
 ```
 
 ## 仅生成 Changelog
@@ -147,4 +147,4 @@ git push -f
 
 ## 更多信息
 
-查看 [RELEASE.md](https://github.com/IceyWu/life-palette-utils/blob/main/RELEASE.md) 了解更详细的发版流程和最佳实践。
+查看 [RELEASE.md](https://github.com/Life-Palette/packages/blob/main/RELEASE.md) 了解更详细的发版流程和最佳实践。

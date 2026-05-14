@@ -15,7 +15,7 @@ export interface FileData {
   type?: string;
   url?: string;
   videoSrc?: string | null;
-  [key: string]: any;
+  [key: string]: unknown;
 }
 
 // 定义 options 对象的类型

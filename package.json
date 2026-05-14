@@ -1,9 +1,9 @@
 {
-  "name": "@life-palette/monorepo",
-  "version": "0.0.3",
+  "name": "life-palette-packages",
   "private": true,
-  "description": "Life Palette Utils Monorepo",
-  "repository": "https://github.com/IceyWu/life-palette-utils",
+  "description": "Life Palette packages monorepo",
+  "repository": "https://github.com/Life-Palette/packages",
+  "bugs": "https://github.com/Life-Palette/packages/issues",
   "license": "MIT",
   "type": "module",
   "scripts": {
@@ -15,15 +15,15 @@
     "play": "pnpm --filter playground dev",
     "docs:dev": "pnpm --filter docs dev",
     "docs:build": "pnpm --filter docs build",
-    "release": "node scripts/pre-release.js && changelogen --release && node scripts/sync-version.js && node scripts/sync-changelog.js && git push --follow-tags && pnpm --filter @life-palette/utils publish",
-    "changelog": "changelogen --output CHANGELOG.md",
-    "sync-changelog": "node scripts/sync-changelog.js",
-    "sync-version": "node scripts/sync-version.js"
+    "changeset": "changeset",
+    "version": "changeset version && node scripts/sync-changelog.js",
+    "release": "pnpm build && changeset publish"
   },
   "devDependencies": {
     "@biomejs/biome": "^2.4.15",
+    "@changesets/changelog-github": "^0.7.0",
+    "@changesets/cli": "^2.31.0",
     "@types/node": "^25.7.0",
-    "changelogen": "^0.6.2",
     "typescript": "^6.0.3",
     "ultracite": "^7.7.0"
   },

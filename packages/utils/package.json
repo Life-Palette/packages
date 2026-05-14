@@ -2,7 +2,13 @@
   "name": "@life-palette/utils",
   "version": "0.0.4",
   "description": "一个实用的工具库，提供文件处理、文件选择等常用功能",
-  "repository": "https://github.com/IceyWu/life-palette-utils",
+  "repository": {
+    "type": "git",
+    "url": "https://github.com/Life-Palette/packages",
+    "directory": "packages/utils"
+  },
+  "homepage": "https://github.com/Life-Palette/packages/tree/main/packages/utils#readme",
+  "bugs": "https://github.com/Life-Palette/packages/issues",
   "license": "MIT",
   "sideEffects": false,
   "type": "module",
