@@ -1,7 +1,7 @@
 {
   "name": "@life-palette/utils",
   "version": "0.0.4",
-  "description": "一个实用的工具库，提供文件处理、文件选择等常用功能",
+  "description": "Life Palette 公共工具库：OSS 上传、媒体处理、日期格式化、MD5、Cookie、分页等",
   "repository": {
     "type": "git",
     "url": "https://github.com/Life-Palette/packages",
@@ -32,9 +32,7 @@
     "test": "vitest run",
     "publish": "npm publish"
   },
-  "dependencies": {
-    "@iceywu/utils": "^0.1.0"
-  },
+  "dependencies": {},
   "devDependencies": {
     "@vitest/coverage-v8": "^4.1.6",
     "baseline-browser-mapping": "^2.10.29",

@@ -37,10 +37,6 @@ importers:
         version: 3.5.34(typescript@6.0.3)
 
   packages/utils:
-    dependencies:
-      '@iceywu/utils':
-        specifier: ^0.1.0
-        version: 0.1.0
     devDependencies:
       '@vitest/coverage-v8':
         specifier: ^4.1.6
@@ -645,9 +641,6 @@ packages:
     engines: {node: '>=18'}
     cpu: [x64]
     os: [win32]
-
-  '@iceywu/utils@0.1.0':
-    resolution: {integrity: sha512-/oxZLj+mm50Y2kbkZq8AzNmtmP6ITQswgfBm6zS+qdfa+W5/+hQzaKK9AgHNveMklI+prYw2ssGDEbzjYLDbpQ==}
 
   '@iconify-json/simple-icons@1.2.55':
     resolution: {integrity: sha512-9vc04pmup/zcef8hDypWU8nMwMaFVkWuUzWkxyL++DVp5AA8baoJHK6RyKN1v+cvfR2agxkUb053XVggzFFkTA==}
@@ -3178,8 +3171,6 @@ snapshots:
 
   '@esbuild/win32-x64@0.25.11':
     optional: true
-
-  '@iceywu/utils@0.1.0': {}
 
   '@iconify-json/simple-icons@1.2.55':
     dependencies:

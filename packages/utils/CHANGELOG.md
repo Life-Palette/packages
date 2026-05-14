@@ -27,7 +27,7 @@
 
 ### 🚀 Enhancements
 
-- 增加type导出 ([444a3e9](https://github.com/Life-Palette/packages/commit/444a3e9))
+- 增加 type 导出 ([444a3e9](https://github.com/Life-Palette/packages/commit/444a3e9))
 
 ### 🏡 Chore
 

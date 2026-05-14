@@ -1,12 +1,40 @@
 # API 文档
 
-## selectFile
+## async
 
-通过编程方式触发文件选择对话框。
+### sleep
 
-### 类型签名
+```ts
+function sleep(ms?: number): Promise<void>;
+```
 
-```typescript
+等待指定毫秒数，默认 1000ms。
+
+### debounce
+
+```ts
+function debounce<T extends (...args: any[]) => any>(
+  func: T,
+  wait: number
+): (...args: Parameters<T>) => void;
+```
+
+### throttle
+
+```ts
+function throttle<T extends (...args: any[]) => any>(
+  func: T,
+  limit: number
+): (...args: Parameters<T>) => void;
+```
+
+---
+
+## browser
+
+### selectFile
+
+```ts
 function selectFile(options?: FileSelectOptions): Promise<FileList | null>;
 
 interface FileSelectOptions {
@@ -18,208 +46,247 @@ interface FileSelectOptions {
 }
 ```
 
-### 参数
+编程式触发文件选择对话框。仅浏览器环境可用。
 
-- `accept` - 接受的文件类型，如 `'image/*'`, `'.jpg,.png'`
-- `multiple` - 是否允许多选，默认 `false`
-- `capture` - 移动设备摄像头捕获模式
-- `onChange` - 文件选择后的回调函数
-- `id` - 文件选择器的 ID，默认自动生成
+### readFile
 
-### 示例
-
-```typescript
-// 选择单张图片
-const files = await selectFile({
-  accept: "image/*",
-  multiple: false,
-});
-
-// 选择多个文档
-const files = await selectFile({
-  accept: ".pdf,.doc,.docx",
-  multiple: true,
-  onChange: (files) => {
-    console.log("已选择:", files);
-  },
-});
-```
-
-## readFile
-
-读取文件内容。
-
-### 类型签名
-
-```typescript
+```ts
 function readFile(
   file: File,
-  readAs?: "dataURL" | "text" | "arrayBuffer" | "binaryString",
+  readAs?: "dataURL" | "text" | "arrayBuffer" | "binaryString"
 ): Promise<string | ArrayBuffer | null>;
 ```
 
-### 参数
+读取文件内容，默认以 DataURL 方式读取。
 
-- `file` - 要读取的文件对象
-- `readAs` - 读取方式，默认 `'dataURL'`
-  - `'dataURL'` - 读取为 Data URL（适合图片预览）
-  - `'text'` - 读取为文本
-  - `'arrayBuffer'` - 读取为 ArrayBuffer
-  - `'binaryString'` - 读取为二进制字符串
+### preloadImage / preloadImages
 
-### 示例
-
-```typescript
-const files = await selectFile({ accept: "image/*" });
-if (files && files[0]) {
-  // 读取为 Data URL
-  const dataUrl = await readFile(files[0], "dataURL");
-
-  // 读取为文本
-  const text = await readFile(files[0], "text");
-
-  // 读取为 ArrayBuffer
-  const buffer = await readFile(files[0], "arrayBuffer");
-}
+```ts
+function preloadImage(src: string): Promise<void>;
+function preloadImages(srcs: string[]): Promise<void>;
 ```
 
-## fileParse
+### isSlowNetwork
 
-处理文件信息，特别是针对 OSS 存储的图片和视频。
+```ts
+function isSlowNetwork(): boolean;
+```
 
-### 类型签名
+检测是否为慢速网络（2G/3G 或下行 < 1Mbps）。
 
-```typescript
-function fileParse(data: FileData, options?: ParseOptions): FileData;
+### getDeviceType
+
+```ts
+function getDeviceType(): "mobile" | "tablet" | "desktop";
+```
+
+### supportsWebP
+
+```ts
+function supportsWebP(): Promise<boolean>;
+```
+
+---
+
+## date
+
+### formatRelativeTime
+
+```ts
+function formatRelativeTime(dateString: string): string;
+```
+
+ISO 字符串 → 中文相对时间（"刚刚"、"3小时前"、"2天前"、"1周前"）。
+
+### formatDistanceToNow
+
+```ts
+function formatDistanceToNow(date: Date): string;
+```
+
+Date 对象 → 中文相对时间，超过 7 天显示"X月X日"。
+
+---
+
+## markdown
+
+### stripMarkdown
+
+```ts
+function stripMarkdown(content: string): string;
+```
+
+去除 Markdown 语法（标题、加粗、链接、代码块等），保留可读纯文本。
+
+---
+
+## media
+
+### fileParse
+
+```ts
+function fileParse(data: FileData, options?: FileParseOptions): FileParseResult;
 
 interface FileData {
   url?: string;
   type?: string;
-  videoSrc?: string | null;
+  extension?: string;
   cover?: string;
-  fromIphone?: boolean;
-  exif?: string;
-  [key: string]: any;
+  live_photo_video?: { url?: string; video_variants?: Array<{ quality?: string; url?: string }> };
+  [key: string]: unknown;
 }
 
-interface ParseOptions {
-  format?: string;
-  resize?: number;
+interface FileParseOptions {
+  format?: string;  // 默认 'jpg'
+  resize?: number;  // 默认 400
 }
-```
 
-### 参数
-
-- `data` - 文件数据对象
-  - `url` - 文件 URL
-  - `type` - 文件类型
-  - `exif` - EXIF 信息（JSON 字符串）
-  - `fromIphone` - 是否来自 iPhone
-- `options` - 处理选项
-  - `format` - 目标格式，默认 `'jpg'`
-  - `resize` - 缩略图尺寸，默认 `400`
-
-### 返回值
-
-返回处理后的文件数据，包含：
-
-- `baseSrc` - 基础图片 URL（图片类型）
-- `thumbnailUrl` - 缩略图 URL（图片类型）
-- `cover` - 封面图 URL（视频类型）
-- `fileType` - 文件类型（`'IMAGE'` 或 `'VIDEO'`）
-
-### 示例
-
-```typescript
-const fileInfo = fileParse(
-  {
-    url: "https://example.com/image.heic",
-    type: "image/heic",
-    fromIphone: true,
-  },
-  {
-    format: "jpg",
-    resize: 400,
-  },
-);
-
-console.log(fileInfo.baseSrc); // 转换后的 JPG URL
-console.log(fileInfo.thumbnailUrl); // 缩略图 URL
-```
-
-## isIphoneImg
-
-检查是否为 iPhone 拍摄的图片。
-
-### 类型签名
-
-```typescript
-function isIphoneImg(data: FileData): boolean;
-```
-
-### 参数
-
-- `data` - 文件数据对象，需包含 `exif` 字段
-
-### 返回值
-
-如果是 iPhone 拍摄的图片返回 `true`，否则返回 `false`。
-
-### 示例
-
-```typescript
-const isFromIphone = isIphoneImg({
-  exif: '{"Make":{"value":"Apple"}}',
-});
-
-if (isFromIphone) {
-  console.log("这是 iPhone 拍摄的图片");
+interface FileParseResult extends FileData {
+  fileType: "IMAGE" | "VIDEO";
+  baseSrc: string;
+  thumbnailUrl: string;
+  cover: string;
+  videoSrc: string;
 }
 ```
 
-## 类型定义
+解析文件数据，自动处理 HEIC 转格式、生成缩略图、视频封面、实况视频 URL。
 
-### ExifData
+### isVideo
 
-```typescript
-interface ExifData {
-  Make?: {
-    value: string;
-  };
+```ts
+function isVideo(file: { type?: string }): boolean;
+```
+
+### isLivePhoto
+
+```ts
+function isLivePhoto(file: { type?: string; videoSrc?: string | null }): boolean;
+```
+
+### getVideoThumbnailUrl
+
+```ts
+function getVideoThumbnailUrl(videoUrl: string): string;
+```
+
+生成 OSS 视频截帧 URL（1s 处，JPG 格式）。
+
+### generateOssImageParams
+
+```ts
+function generateOssImageParams(
+  originalWidth: number,
+  originalHeight: number,
+  targetWidth: number,
+  quality?: number
+): string;
+```
+
+生成 OSS 图片处理参数字符串（resize + quality + webp）。
+
+### parseFileName
+
+```ts
+function parseFileName(fileName: string): {
+  baseName: string;
+  ext: string;
+  isVideo: boolean;
+};
+```
+
+### detectLivePhotoPairs
+
+```ts
+function detectLivePhotoPairs<T extends { name: string; type?: string }>(
+  files: T[]
+): Array<{ image: T; video: T }>;
+```
+
+检测文件列表中同名的 image + video 配对（Live Photo）。
+
+---
+
+## oss
+
+### createOssUploader
+
+```ts
+function createOssUploader(config: UploaderConfig): {
+  upload: (file: File, options?: UploadOptions) => Promise<OSSFile>;
+  uploadBatch: (files: File[], options?: UploadOptions, maxRetries?: number) => Promise<OSSFile[]>;
+  uploadToOSS: (file: File, options?: UploadOptions) => Promise<UploadToOSSResult>;
+  associateLivePhotos: (results: OSSFile[]) => Promise<void>;
+};
+
+interface UploaderConfig {
+  apiBaseUrl: string;
+  getToken: () => string | null;
+  chunkSize?: number;          // 默认 5MB
+  multipartThreshold?: number; // 默认 5MB
+}
+
+interface UploadOptions {
+  compress?: boolean;
+  isPrivate?: boolean;
+  location?: { lat: number; lng: number };
+  maxSizeMB?: number;
+  onProgress?: (progress: UploadProgress) => void;
+}
+
+interface UploadProgress {
+  stage: "compress" | "md5" | "upload" | "complete";
+  percent: number;
 }
 ```
 
-### FileSelectOptions
+::: warning 依赖说明
+使用 OSS 模块需要项目自行安装 `spark-md5` 和 `browser-image-compression`。
+:::
 
-```typescript
-interface FileSelectOptions {
-  accept?: string;
-  multiple?: boolean;
-  capture?: boolean | string;
-  onChange?: (files: FileList | null) => void;
-  id?: string;
-}
+---
+
+## pagination
+
+### getPageNumbers
+
+```ts
+function getPageNumbers(
+  currentPage: number,
+  totalPages: number
+): Array<number | "...">;
 ```
 
-### FileData
+生成带省略号的分页页码列表。
 
-```typescript
-interface FileData {
-  url?: string;
-  type?: string;
-  videoSrc?: string | null;
-  cover?: string;
-  fromIphone?: boolean;
-  exif?: string;
-  [key: string]: any;
-}
+---
+
+## url
+
+### parseUrl
+
+```ts
+function parseUrl(fullPath: string): {
+  name: string;
+  path: string;
+  query: Record<string, string>;
+};
 ```
 
-### ParseOptions
+简易 URL 解析（支持带 query 的相对/绝对路径）。
 
-```typescript
-interface ParseOptions {
-  format?: string;
-  resize?: number;
-}
+### restoreUrl
+
+```ts
+function restoreUrl(path: string, query?: Record<string, unknown>): string;
 ```
+
+把 query 对象拼回 path。
+
+### isFastClick
+
+```ts
+function isFastClick(threshold?: number): boolean;
+```
+
+防止快速重复点击，默认阈值 1000ms。

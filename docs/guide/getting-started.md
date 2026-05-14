@@ -8,7 +8,7 @@ Life Palette Packages 是一组服务于 Life Palette 生态的工具库，采�
 
 | 包名 | 描述 |
 | --- | --- |
-| [@life-palette/utils](/packages/utils/) | 文件处理、文件选择等实用工具库 |
+| [@life-palette/utils](/packages/utils/) | OSS 上传、媒体处理、日期格式化、分页、Markdown 等公共工具 |
 
 ## 安装
 
@@ -30,20 +30,35 @@ yarn add @life-palette/utils
 
 ## 基础用法
 
-```typescript
-import { selectFile, readFile } from "@life-palette/utils";
+```ts
+import {
+  createOssUploader,
+  fileParse,
+  formatRelativeTime,
+  getPageNumbers,
+  selectFile,
+  sleep,
+  stripMarkdown,
+} from "@life-palette/utils";
 
-// 选择文件
-const files = await selectFile({
-  accept: "image/*",
-  multiple: true,
+// 文件选择
+const files = await selectFile({ accept: "image/*", multiple: true });
+
+// 日期
+formatRelativeTime("2024-01-10T10:00:00Z"); // "2小时前"
+
+// Markdown → 纯文本
+stripMarkdown("# Hello **world**"); // "Hello world"
+
+// 分页
+getPageNumbers(5, 10); // [1, '...', 4, 5, 6, '...', 10]
+
+// OSS 上传
+const uploader = createOssUploader({
+  apiBaseUrl: "https://api.lpalette.cn/api/v1",
+  getToken: () => localStorage.getItem("token"),
 });
-
-// 读取文件
-if (files && files[0]) {
-  const content = await readFile(files[0], "dataURL");
-  console.log(content);
-}
+const result = await uploader.upload(rawFile, { compress: true });
 ```
 
 ## 本地开发

@@ -4,7 +4,9 @@ export default defineBuildConfig({
   entries: ["src/index"],
   declaration: true,
   clean: true,
+  failOnWarn: false,
   rollup: {
     emitCJS: true,
   },
+  externals: ["spark-md5", "browser-image-compression"],
 });
