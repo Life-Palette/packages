@@ -1,6 +1,7 @@
 {
   "name": "life-palette-packages",
-  "description": "Life Palette packages monorepo",
+  "private": true,
+  "description": "拾色(LifePalette) packages monorepo",
   "repository": "https://github.com/Life-Palette/packages",
   "bugs": "https://github.com/Life-Palette/packages/issues",
   "license": "MIT",

@@ -1,8 +1,11 @@
 # Life Palette Packages
 
 [![CI](https://github.com/Life-Palette/packages/actions/workflows/ci.yml/badge.svg)](https://github.com/Life-Palette/packages/actions/workflows/ci.yml)
+[![Docs](https://img.shields.io/badge/docs-online-blue)](https://life-palette-packages.netlify.app/)
 
 Life Palette 生态的工具包集合，采用 monorepo 架构管理。
+
+📖 **文档地址**：https://life-palette-packages.netlify.app/
 
 ## Packages
 

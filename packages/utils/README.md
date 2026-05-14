@@ -3,8 +3,11 @@
 [![npm version](https://img.shields.io/npm/v/@life-palette/utils?color=yellow)](https://npmjs.com/package/@life-palette/utils)
 [![npm downloads](https://img.shields.io/npm/dm/@life-palette/utils?color=yellow)](https://npm.chart.dev/@life-palette/utils)
 [![License](https://img.shields.io/npm/l/@life-palette/utils)](https://github.com/Life-Palette/packages/blob/main/LICENSE)
+[![Docs](https://img.shields.io/badge/docs-online-blue)](https://life-palette-packages.netlify.app/)
 
 Life Palette 公共工具库：OSS 上传、媒体处理、日期格式化、分页、Markdown 处理等。
+
+📖 **文档地址**：https://life-palette-packages.netlify.app/
 
 ## 安装
 
@@ -176,6 +179,10 @@ pnpm install
 pnpm build
 pnpm test
 ```
+
+## 文档
+
+在线文档：https://life-palette-packages.netlify.app/
 
 ## License
 
