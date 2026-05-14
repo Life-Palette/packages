@@ -1,0 +1,161 @@
+:root {
+  --vp-c-brand-1: #8b6b4a;
+  --vp-c-brand-2: #a0845e;
+  --vp-c-brand-3: #b89b72;
+  --vp-c-brand-soft: rgba(139, 107, 74, 0.1);
+
+  --vp-home-hero-name-color: transparent;
+  --vp-home-hero-name-background: linear-gradient(
+    135deg,
+    #8b6b4a 0%,
+    #a0845e 50%,
+    #6b8a7a 100%
+  );
+
+  --vp-home-hero-image-background-image: radial-gradient(
+    ellipse at 60% 40%,
+    rgba(255, 200, 150, 0.25) 0%,
+    rgba(200, 230, 200, 0.2) 30%,
+    rgba(180, 210, 240, 0.15) 60%,
+    transparent 80%
+  );
+
+  --vp-c-bg: #fefefe;
+  --vp-c-bg-soft: #f9f7f5;
+  --vp-c-bg-mute: #f3f0ec;
+
+  --vp-c-text-1: #4a3f35;
+  --vp-c-text-2: #7a6f63;
+  --vp-c-text-3: #a09890;
+
+  --vp-c-border: #e8e2dc;
+  --vp-c-divider: #ede8e3;
+
+  --vp-font-family-base:
+    -apple-system, "Noto Sans SC", "PingFang SC", "Hiragino Sans GB", sans-serif;
+  --vp-font-family-mono: "JetBrains Mono", ui-monospace, monospace;
+
+  --vp-button-brand-bg: #8b6b4a;
+  --vp-button-brand-hover-bg: #a0845e;
+  --vp-button-brand-active-bg: #7a5c3e;
+}
+
+.dark {
+  --vp-c-brand-1: #d4b896;
+  --vp-c-brand-2: #c4a67e;
+  --vp-c-brand-3: #b89b72;
+  --vp-c-brand-soft: rgba(212, 184, 150, 0.1);
+
+  --vp-home-hero-name-background: linear-gradient(
+    135deg,
+    #d4b896 0%,
+    #c4a67e 50%,
+    #9abfad 100%
+  );
+
+  --vp-home-hero-image-background-image: radial-gradient(
+    ellipse at 60% 40%,
+    rgba(255, 200, 150, 0.08) 0%,
+    rgba(200, 230, 200, 0.06) 30%,
+    rgba(180, 210, 240, 0.04) 60%,
+    transparent 80%
+  );
+
+  --vp-c-bg: #1a1a1a;
+  --vp-c-bg-soft: #222222;
+  --vp-c-bg-mute: #2a2a2a;
+
+  --vp-c-text-1: #e8e0d8;
+  --vp-c-text-2: #b8b0a8;
+  --vp-c-text-3: #888078;
+
+  --vp-c-border: #3a3530;
+  --vp-c-divider: #332e2a;
+
+  --vp-button-brand-bg: #a0845e;
+  --vp-button-brand-hover-bg: #b89b72;
+  --vp-button-brand-active-bg: #8b6b4a;
+}
+
+/* Hero rainbow glow */
+.VPHero {
+  position: relative;
+}
+
+.VPHero::before {
+  position: absolute;
+  top: -60px;
+  left: 50%;
+  z-index: 0;
+  width: 600px;
+  height: 600px;
+  pointer-events: none;
+  content: "";
+  background:
+    radial-gradient(
+      ellipse at 30% 40%,
+      rgba(255, 180, 130, 0.2) 0%,
+      transparent 50%
+    ),
+    radial-gradient(
+      ellipse at 70% 30%,
+      rgba(180, 220, 180, 0.18) 0%,
+      transparent 45%
+    ),
+    radial-gradient(
+      ellipse at 50% 70%,
+      rgba(170, 200, 240, 0.15) 0%,
+      transparent 50%
+    ),
+    radial-gradient(
+      ellipse at 80% 60%,
+      rgba(240, 200, 220, 0.12) 0%,
+      transparent 40%
+    );
+  border-radius: 50%;
+  filter: blur(40px);
+  transform: translateX(-50%);
+}
+
+.dark .VPHero::before {
+  opacity: 0.4;
+}
+
+.VPHero .container {
+  position: relative;
+  z-index: 1;
+}
+
+/* Clean feature cards */
+.VPFeature {
+  background: var(--vp-c-bg) !important;
+  border: 1px solid var(--vp-c-border) !important;
+  transition:
+    transform 0.2s ease,
+    box-shadow 0.2s ease;
+}
+
+.VPFeature:hover {
+  box-shadow: 0 8px 24px rgba(0, 0, 0, 0.04);
+  transform: translateY(-2px);
+}
+
+.dark .VPFeature:hover {
+  box-shadow: 0 8px 24px rgba(0, 0, 0, 0.2);
+}
+
+/* Typography */
+.VPHero .name {
+  font-weight: 300 !important;
+  letter-spacing: -0.02em;
+}
+
+.VPHero .text {
+  font-weight: 400 !important;
+  color: var(--vp-c-text-1) !important;
+}
+
+.VPHero .tagline {
+  font-weight: 300 !important;
+  color: var(--vp-c-text-2) !important;
+}
