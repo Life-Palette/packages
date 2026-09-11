@@ -1,12 +1,20 @@
 {
-  "extends": "astro/tsconfigs/strict",
-  "include": [".astro/types.d.ts", "**/*"],
-  "exclude": ["dist"],
   "compilerOptions": {
-    "baseUrl": ".",
+    "target": "ES2022",
+    "module": "ESNext",
+    "moduleResolution": "bundler",
+    "strict": true,
+    "jsx": "preserve",
+    "resolveJsonModule": true,
+    "isolatedModules": true,
+    "esModuleInterop": true,
+    "lib": ["ES2022", "DOM", "DOM.Iterable"],
+    "types": ["vite/client"],
     "paths": {
-      "@life-palette/utils/*": ["../../packages/utils/src/*"],
-      "@life-palette/media/*": ["../../packages/media/src/*"]
+      "@life-palette/utils": ["../../packages/utils/src/index.ts"],
+      "@life-palette/media": ["../../packages/media/src/index.ts"],
+      "@life-palette/uploader": ["../../packages/uploader/src/index.ts"]
     }
-  }
+  },
+  "include": ["src/**/*.ts", "src/**/*.vue", "histoire.config.ts"]
 }

@@ -44,12 +44,12 @@
     }
   },
   "devDependencies": {
-    "@vitest/coverage-v8": "^4.1.6",
-    "attw": "^1.1.0",
+    "@vitest/coverage-v8": "^5.0.0",
+    "attw": "^1.0.0",
     "browser-image-compression": "^2.0.2",
     "publint": "^0.3.24",
-    "tsdown": "^0.20.0",
-    "vitest": "^4.1.6"
+    "tsdown": "^0.23.0",
+    "vitest": "^5.0.0"
   },
   "publishConfig": {
     "access": "public",

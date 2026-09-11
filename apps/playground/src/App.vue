@@ -1,7 +1,7 @@
 <script setup lang="ts">
+import { computed, onBeforeUnmount, ref } from "vue";
 import { analyzeMedia, type MediaAnalysisResult } from "@life-palette/media";
 import { createOssUploader, type OSSFile } from "@life-palette/uploader";
-import { computed, onBeforeUnmount, ref } from "vue";
 
 const fileInput = ref<HTMLInputElement | null>(null);
 const selectedFile = ref<File | null>(null);
@@ -14,9 +14,7 @@ const isAnalyzing = ref(false);
 const activeStage = ref<"idle" | "md5" | "decode" | "analyze" | "done">("idle");
 const progress = ref(0);
 const apiBaseUrl = ref("http://localhost:9527/api/v1");
-const authToken = ref(
-  "Bearer eyJhbGciOiJIUzI1NiIsInR5cCI6IkpXVCJ9.eyJ1c2VyX2lkIjoxLCJ0b2tlbl90eXBlIjoiYWNjZXNzIiwiZXhwIjoxNzg5NjMwMDE0LCJuYmYiOjE3ODkwMjUyMTQsImlhdCI6MTc4OTAyNTIxNH0.wQ3HrQr5_ACcXw1Ny4Lkt9UlXx9jEuyD-MOoX16fwA4"
-);
+const authToken = ref("");
 const isPrivate = ref(false);
 const isUploading = ref(false);
 const uploadProgress = ref(0);

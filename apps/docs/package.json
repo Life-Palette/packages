@@ -1,23 +1,23 @@
 {
-  "name": "docs",
-  "version": "0.1.0",
+  "name": "@life-palette/docs",
   "private": true,
+  "version": "0.0.0",
   "type": "module",
   "scripts": {
-    "dev": "astro dev",
-    "build": "astro build",
-    "preview": "astro preview",
-    "check": "astro check"
+    "dev": "histoire dev",
+    "build": "histoire build",
+    "preview": "histoire preview"
   },
   "dependencies": {
-    "@astrojs/starlight": "^0.32.0",
     "@life-palette/media": "workspace:*",
+    "@life-palette/uploader": "workspace:*",
     "@life-palette/utils": "workspace:*",
-    "astro": "^5.0.0",
-    "sharp": "^0.33.5"
+    "vue": "^3.5.42"
   },
   "devDependencies": {
-    "@types/node": "^24.12.3",
-    "typescript": "~6.0.2"
+    "@histoire/plugin-vue": "1.0.0-beta.1",
+    "@vitejs/plugin-vue": "^6.0.8",
+    "histoire": "1.0.0-beta.1",
+    "vite": "^7.3.6"
   }
 }
