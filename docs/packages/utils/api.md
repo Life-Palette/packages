@@ -122,6 +122,25 @@ function stripMarkdown(content: string): string;
 
 ## media
 
+### analyzeMedia
+
+```ts
+function analyzeMedia(file: File, options?: AnalyzeMediaOptions): Promise<MediaAnalysisResult>;
+```
+
+在浏览器端分析图片或视频，返回 MD5、尺寸、BlurHash、Arthash、主色、基础
+EXIF，以及视频尺寸、时长、编码器、码率、帧率和视频 EXIF/GPS。
+
+图片 Arthash 使用 Liora 兼容的 `RECT n=64`：
+
+```ts
+metadata.image?.arthash_codec === "rect-v64";
+```
+
+完整 EXIF 默认不返回；需要时传入 `includeRawExif: true`。视频技术信息通过懒加载的
+`mediainfo.js` 在浏览器端读取；视频 EXIF/GPS 使用同一份 EXIF 结果提交，读取不到时会省略无法取得的字段。
+视频转码不由此函数执行。
+
 ### fileParse
 
 ```ts
@@ -216,7 +235,7 @@ function createOssUploader(config: UploaderConfig): {
   upload: (file: File, options?: UploadOptions) => Promise<OSSFile>;
   uploadBatch: (files: File[], options?: UploadOptions, maxRetries?: number) => Promise<OSSFile[]>;
   uploadToOSS: (file: File, options?: UploadOptions) => Promise<UploadToOSSResult>;
-  associateLivePhotos: (results: OSSFile[]) => Promise<void>;
+  associateLivePhotos: (results: OSSFile[]) => Promise<OSSFile[]>;
 };
 
 interface UploaderConfig {
@@ -224,6 +243,7 @@ interface UploaderConfig {
   getToken: () => string | null;
   chunkSize?: number;          // 默认 5MB
   multipartThreshold?: number; // 默认 5MB
+  completeEndpoint?: string;    // 默认 /file/upload/complete
 }
 
 interface UploadOptions {
@@ -231,14 +251,20 @@ interface UploadOptions {
   isPrivate?: boolean;
   location?: { lat: number; lng: number };
   maxSizeMB?: number;
+  analyze?: boolean;            // 默认 true
+  analysis?: Omit<AnalyzeMediaOptions, "onProgress">;
+  precomputedAnalysis?: MediaAnalysisResult;
   onProgress?: (progress: UploadProgress) => void;
 }
 
 interface UploadProgress {
-  stage: "compress" | "md5" | "upload" | "complete";
+  stage: "compress" | "analyze" | "md5" | "upload" | "complete";
   percent: number;
 }
 ```
+
+默认上传流程会在浏览器端完成媒体分析，然后调用
+/file/upload/complete 只接受浏览器生成的 metadata。设置 analyze: false 时提交最小 metadata。
 
 ::: warning 依赖说明
 使用 OSS 模块需要项目自行安装 `spark-md5` 和 `browser-image-compression`。

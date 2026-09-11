@@ -1,3 +1,10 @@
+import {
+	analyzeMedia,
+	detectLivePhotoPairs,
+	type AnalyzeMediaOptions,
+  type MediaAnalysisResult,
+} from "../media";
+
 /**
  * OSS 上传工具 - 纯函数封装，不依赖任何框架
  *
@@ -9,12 +16,15 @@
 
 export interface OSSFile {
   address?: string;
+  arthash?: string;
+  arthash_codec?: string;
   blurhash?: string;
   created_at: string;
   file_md5: string;
   height?: number;
   is_private: boolean;
   live_photo_video_id?: number;
+  live_photo_video_sec_uid?: string;
   name: string;
   sec_uid: string;
   size: number;
@@ -23,6 +33,7 @@ export interface OSSFile {
   updated_at: string;
   url: string;
   width?: number;
+  colors?: unknown[];
 }
 
 export interface UploadToken {
@@ -40,7 +51,12 @@ export interface CompletePart {
   part_number: number;
 }
 
-export type UploadStage = "compress" | "md5" | "upload" | "complete";
+export type UploadStage =
+  | "compress"
+  | "analyze"
+  | "md5"
+  | "upload"
+  | "complete";
 
 export interface UploadProgress {
   percent: number;
@@ -56,6 +72,12 @@ export interface UploadOptions {
   location?: { lat: number; lng: number };
   /** 最大文件大小 MB（压缩用） */
   maxSizeMB?: number;
+  /** 是否在上传前执行浏览器端媒体分析，默认 true */
+  analyze?: boolean;
+  /** 媒体分析参数 */
+  analysis?: Omit<AnalyzeMediaOptions, "onProgress">;
+  /** 已经计算好的分析结果，可避免上传前重复分析 */
+  precomputedAnalysis?: MediaAnalysisResult;
   /** 进度回调 */
   onProgress?: (progress: UploadProgress) => void;
 }
@@ -79,6 +101,8 @@ export interface UploaderConfig {
   getToken: () => string | null;
   /** 分片阈值（字节），默认 5MB */
   multipartThreshold?: number;
+  /** 带浏览器 metadata 的完成接口，默认 /file/upload/complete */
+  completeEndpoint?: string;
 }
 
 // ============ 内部类型 ============
@@ -101,6 +125,7 @@ interface InitMultipartResponse {
   total_parts: number;
   upload_id: string;
   uploaded_parts: number[];
+  uploaded_part_etags?: CompletePart[];
 }
 type InitResponse =
   | InitExistsResponse
@@ -117,6 +142,7 @@ export function createOssUploader(config: UploaderConfig) {
     getToken,
     multipartThreshold = 5 * 1024 * 1024,
     chunkSize = 5 * 1024 * 1024,
+    completeEndpoint = "/file/upload/complete",
   } = config;
 
   // --- HTTP 工具 ---
@@ -180,10 +206,11 @@ export function createOssUploader(config: UploaderConfig) {
     is_private?: boolean;
     lat?: number;
     lng?: number;
+    metadata: MediaAnalysisResult;
     upload_id?: string;
     parts?: CompletePart[];
   }) {
-    return post<OSSFile>("/file/upload/complete", data);
+    return post<OSSFile>(completeEndpoint, data);
   }
 
   function getPartUrls(key: string, uploadId: string, partNumbers: number[]) {
@@ -233,7 +260,8 @@ export function createOssUploader(config: UploaderConfig) {
     md5: string,
     isPrivate?: boolean,
     onProgress?: (pct: number) => void,
-    location?: { lat: number; lng: number }
+    location?: { lat: number; lng: number },
+    metadata?: MediaAnalysisResult
   ): Promise<OSSFile> {
     onProgress?.(10);
     const init = await initUpload(file.name, file.size, md5);
@@ -273,6 +301,9 @@ export function createOssUploader(config: UploaderConfig) {
     });
 
     onProgress?.(85);
+    if (!metadata) {
+      throw new Error("媒体 metadata 缺失");
+    }
     const result = await completeUpload({
       key: t.key,
       md5,
@@ -280,6 +311,7 @@ export function createOssUploader(config: UploaderConfig) {
       file_size: file.size,
       is_private: isPrivate,
       ...(location ? { lat: location.lat, lng: location.lng } : {}),
+      metadata,
     });
     onProgress?.(100);
     return result;
@@ -291,7 +323,8 @@ export function createOssUploader(config: UploaderConfig) {
     md5: string,
     isPrivate?: boolean,
     onProgress?: (pct: number) => void,
-    location?: { lat: number; lng: number }
+    location?: { lat: number; lng: number },
+    metadata?: MediaAnalysisResult
   ): Promise<OSSFile> {
     onProgress?.(5);
     const init = await initUpload(file.name, file.size, md5, chunkSize);
@@ -307,6 +340,7 @@ export function createOssUploader(config: UploaderConfig) {
       upload_id: uid,
       key,
       uploaded_parts: done = [],
+      uploaded_part_etags: existingParts = [],
       total_parts: total,
     } = init;
     const doneSet = new Set(done);
@@ -319,7 +353,7 @@ export function createOssUploader(config: UploaderConfig) {
       urls = (await getPartUrls(key, uid, pending)).urls;
     }
 
-    const parts: CompletePart[] = [];
+    const parts: CompletePart[] = [...existingParts];
     let uploaded = 0;
 
     for (const pn of pending) {
@@ -347,6 +381,9 @@ export function createOssUploader(config: UploaderConfig) {
 
     parts.sort((a, b) => a.part_number - b.part_number);
     onProgress?.(90);
+    if (!metadata) {
+      throw new Error("媒体 metadata 缺失");
+    }
 
     const result = await completeUpload({
       key,
@@ -357,6 +394,7 @@ export function createOssUploader(config: UploaderConfig) {
       parts,
       is_private: isPrivate,
       ...(location ? { lat: location.lat, lng: location.lng } : {}),
+      metadata,
     });
     onProgress?.(100);
     return result;
@@ -470,6 +508,7 @@ export function createOssUploader(config: UploaderConfig) {
       upload_id: uid,
       key,
       uploaded_parts: done = [],
+      uploaded_part_etags: existingParts = [],
       total_parts: total,
     } = init;
     const doneSet = new Set(done);
@@ -482,7 +521,7 @@ export function createOssUploader(config: UploaderConfig) {
       urls = (await getPartUrls(key, uid, pending)).urls;
     }
 
-    const parts: CompletePart[] = [];
+    const parts: CompletePart[] = [...existingParts];
     let uploaded = 0;
     for (const pn of pending) {
       const start = (pn - 1) * chunkSize;
@@ -494,7 +533,11 @@ export function createOssUploader(config: UploaderConfig) {
       if (!urlInfo) {
         throw new Error(`No URL for part ${pn}`);
       }
-      const res = await fetch(urlInfo.url, { method: "PUT", body: chunk });
+      const res = await fetch(urlInfo.url, {
+        method: "PUT",
+        headers: { "Content-Type": "application/json" },
+        body: chunk,
+      });
       if (!res.ok) {
         throw new Error(`Failed to upload part ${pn}`);
       }
@@ -532,6 +575,9 @@ export function createOssUploader(config: UploaderConfig) {
       isPrivate,
       location,
       onProgress,
+      analyze: shouldAnalyze = true,
+      analysis: analysisOptions,
+      precomputedAnalysis,
     } = options;
     let processed = file;
 
@@ -541,10 +587,60 @@ export function createOssUploader(config: UploaderConfig) {
       onProgress?.({ stage: "compress", percent: 100 });
     }
 
-    onProgress?.({ stage: "md5", percent: 0 });
-    const md5 = await calcMD5(processed, (pct) =>
-      onProgress?.({ stage: "md5", percent: pct })
-    );
+    let metadata: MediaAnalysisResult | undefined;
+    let md5: string;
+    if (precomputedAnalysis) {
+      metadata = precomputedAnalysis;
+      md5 = metadata.basic.md5;
+      if (!md5) {
+        throw new Error("预计算媒体分析结果缺少 MD5");
+      }
+    } else if (shouldAnalyze) {
+      onProgress?.({ stage: "analyze", percent: 0 });
+      metadata = await analyzeMedia(processed, {
+        ...analysisOptions,
+        onProgress: ({ stage, percent }) => {
+          if (stage === "md5") {
+            onProgress?.({
+              stage: "analyze",
+              percent: Math.round(percent * 0.35),
+            });
+          } else if (stage === "decode") {
+            onProgress?.({
+              stage: "analyze",
+              percent: 35 + Math.round(percent * 0.35),
+            });
+          } else {
+            onProgress?.({
+              stage: "analyze",
+              percent: 70 + Math.round(percent * 0.3),
+            });
+          }
+        },
+      });
+      md5 = metadata.basic.md5;
+    } else {
+      onProgress?.({ stage: "md5", percent: 0 });
+      md5 = await calcMD5(processed, (pct) =>
+        onProgress?.({ stage: "md5", percent: pct })
+      );
+      metadata = {
+        schema_version: 1,
+        basic: {
+          name: processed.name,
+          type: processed.type,
+          extension: processed.name.includes(".")
+            ? processed.name.slice(processed.name.lastIndexOf("."))
+            : "",
+          size: processed.size,
+          md5,
+        },
+      };
+    }
+
+    if (!metadata) {
+      throw new Error("媒体 metadata 生成失败");
+    }
 
     onProgress?.({ stage: "upload", percent: 0 });
     const fn =
@@ -554,7 +650,8 @@ export function createOssUploader(config: UploaderConfig) {
       md5,
       isPrivate,
       (pct) => onProgress?.({ stage: "upload", percent: pct }),
-      location
+      location,
+      metadata
     );
 
     onProgress?.({ stage: "complete", percent: 100 });
@@ -562,50 +659,31 @@ export function createOssUploader(config: UploaderConfig) {
   }
 
   // --- 实况照片关联 ---
-  function getFileExtName(name: string): {
-    baseName: string;
-    ext: string;
-    isVideo: boolean;
-  } {
-    const parts = name.split(".");
-    const ext = (parts.pop() || "").toLowerCase();
-    const baseName = parts.join(".");
-    const videoExts = ["mov", "mp4", "avi", "mkv", "webm", "m4v"];
-    return { baseName, ext, isVideo: videoExts.includes(ext) };
-  }
-
-  async function associateLivePhotos(results: OSSFile[]): Promise<void> {
-    const byName = new Map<string, { images: OSSFile[]; videos: OSSFile[] }>();
-    for (const f of results) {
-      const { baseName, isVideo } = getFileExtName(f.name);
-      if (!byName.has(baseName)) {
-        byName.set(baseName, { images: [], videos: [] });
-      }
-      const group = byName.get(baseName);
-      if (!group) {
+  async function associateLivePhotos(results: OSSFile[]): Promise<OSSFile[]> {
+    const associatedResults = [...results];
+    for (const { image, video } of detectLivePhotoPairs(results)) {
+      if (!image || !video) {
         continue;
       }
-      if (isVideo) {
-        group.videos.push(f);
-      } else {
-        group.images.push(f);
-      }
-    }
-
-    for (const [, { images, videos }] of byName) {
-      if (images.length === 0 || videos.length === 0) {
-        continue;
-      }
-      const image = images[0];
-      const video = videos[0];
       try {
-        await put<unknown>(`/file/${image.sec_uid}`, {
+        const updatedImage = await put<OSSFile>(`/file/${image.sec_uid}`, {
           live_photo_video_sec_uid: video.sec_uid,
         });
+        const imageIndex = associatedResults.findIndex(
+          (item) => item.sec_uid === image.sec_uid
+        );
+        if (imageIndex >= 0) {
+          associatedResults[imageIndex] = {
+            ...associatedResults[imageIndex],
+            ...updatedImage,
+            live_photo_video_sec_uid: video.sec_uid,
+          };
+        }
       } catch (e) {
         console.error("实况照片关联失败:", e);
       }
     }
+    return associatedResults;
   }
 
   /**
@@ -636,8 +714,7 @@ export function createOssUploader(config: UploaderConfig) {
         throw lastErr;
       }
     }
-    await associateLivePhotos(results);
-    return results;
+    return associateLivePhotos(results);
   }
 
   return { upload, uploadBatch, uploadToOSS, associateLivePhotos };

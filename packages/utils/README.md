@@ -23,7 +23,7 @@ pnpm add @life-palette/utils
 | `browser` | `selectFile`, `readFile`, `preloadImage`, `preloadImages`, `isSlowNetwork`, `getDeviceType`, `supportsWebP` | 浏览器环境工具 |
 | `date` | `formatRelativeTime`, `formatDistanceToNow` | 中文相对时间格式化 |
 | `markdown` | `stripMarkdown` | 去除 Markdown 语法保留纯文本 |
-| `media` | `fileParse`, `isVideo`, `isLivePhoto`, `getVideoThumbnailUrl`, `generateOssImageParams`, `parseFileName`, `detectLivePhotoPairs` | OSS 图片/视频 URL 处理、实况照片配对 |
+| `media` | `analyzeMedia`, `fileParse`, `isVideo`, `isLivePhoto`, `getVideoThumbnailUrl`, `generateOssImageParams`, `parseFileName`, `detectLivePhotoPairs` | 图片/视频分析、OSS URL 处理、实况照片配对 |
 | `oss` | `createOssUploader` | OSS 上传工厂（秒传/普通/分片/批量/实况关联） |
 | `pagination` | `getPageNumbers` | 带省略号的分页页码生成 |
 | `url` | `parseUrl`, `restoreUrl`, `isFastClick` | URL 解析与防快速点击 |
@@ -32,6 +32,7 @@ pnpm add @life-palette/utils
 
 ```ts
 import {
+  analyzeMedia,
   createOssUploader,
   fileParse,
   formatRelativeTime,
@@ -92,6 +93,20 @@ stripMarkdown("# Hello **world**"); // "Hello world"
 ### media
 
 ```ts
+const metadata = await analyzeMedia(file, {
+  includeRawExif: false,
+  colorCount: 5,
+  onProgress: ({ stage, percent }) => console.log(stage, percent),
+});
+
+// metadata.basic.md5 / width / height
+// metadata.image?.blurhash
+// metadata.image?.arthash
+// metadata.image?.arthash_codec === "rect-v64"
+// metadata.image?.colors / metadata.image?.exif
+// metadata.video?.width / height / duration / codec / bitrate / frame_rate
+// metadata.video?.exif.lat / lng / taken_at / device_model
+
 // 解析文件 URL（自动处理 HEIC 转格式、生成缩略图、视频封面）
 const result = fileParse(
   { url: "https://cdn.example.com/photo.heic", type: "image/heic", extension: ".heic" },
@@ -123,7 +138,7 @@ detectLivePhotoPairs([
 ### oss
 
 ```ts
-// 创建上传实例（需要项目自行安装 spark-md5 和 browser-image-compression）
+// 创建上传实例（图片压缩功能需要项目自行安装 browser-image-compression）
 const uploader = createOssUploader({
   apiBaseUrl: "https://api.lpalette.cn/api/v1",
   getToken: () => localStorage.getItem("token"),
@@ -137,12 +152,19 @@ const file = await uploader.upload(rawFile, {
   onProgress: ({ stage, percent }) => console.log(stage, percent),
 });
 
+// 默认流程：压缩（可选）→ 浏览器端分析 → OSS 上传 → complete 保存 metadata
+// 如页面已经分析过，可传 precomputedAnalysis 避免重复计算。
+
 // 批量上传（自动关联实况照片）
 const files = await uploader.uploadBatch(fileList, { compress: true });
 
 // 仅上传到 OSS（不创建 DB 记录，用于替换场景）
 const ossResult = await uploader.uploadToOSS(rawFile);
 ```
+
+createOssUploader 默认调用 /file/upload/complete。该接口只保存浏览器生成的
+图片与视频 metadata（视频技术信息和 EXIF/GPS 由浏览器读取）；设置
+analyze: false 时仍会提交最小 metadata，保证服务端契约一致。
 
 ### pagination
 
@@ -164,10 +186,12 @@ isFastClick(1000); // 防止 1s 内重复点击
 
 ## OSS 模块依赖说明
 
-`createOssUploader` 内部通过动态 `import()` 按需加载 `spark-md5`（MD5 计算）和 `browser-image-compression`（图片压缩），使用 OSS 功能时需确保项目已安装：
+`createOssUploader` 内部通过动态 `import()` 按需加载
+`browser-image-compression`（图片压缩）。视频技术信息通过 `mediainfo.js` 在浏览器端按需解析，
+服务端不再依赖 ffprobe 或其他媒体解码工具。
 
 ```bash
-pnpm add spark-md5 browser-image-compression
+pnpm add browser-image-compression
 ```
 
 不使用 OSS 功能则无需安装。

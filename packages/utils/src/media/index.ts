@@ -2,6 +2,8 @@
  * 媒体文件 URL 处理（OSS 图片/视频）
  */
 
+export * from "./analyze";
+
 /** HEIC 等需要 OSS 转格式的扩展名 */
 const NEED_FORMAT_EXTS = [".heic", ".heif"];
 
@@ -185,7 +187,11 @@ export function detectLivePhotoPairs<T extends { name: string; type?: string }>(
     });
 
     if (imageIdx !== -1) {
-      pairs.push({ image: files[imageIdx], video: file });
+      const image = files[imageIdx];
+      if (!image) {
+        return;
+      }
+      pairs.push({ image, video: file });
       usedIndices.add(imageIdx);
       usedIndices.add(idx);
     }
