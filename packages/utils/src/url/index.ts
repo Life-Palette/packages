@@ -12,11 +12,9 @@ export function parseUrl(fullPath: string): {
   const name = path.slice(path.lastIndexOf("/") + 1);
   const query: Record<string, string> = {};
   if (queryStr) {
-    for (const kv of queryStr.split("&")) {
-      const [k, v] = kv.split("=");
-      if (k) {
-        query[k] = v ?? "";
-      }
+    const params = new URLSearchParams(queryStr);
+    for (const [k, v] of params) {
+      query[k] = v;
     }
   }
   return { name, path, query };
@@ -27,10 +25,14 @@ export function restoreUrl(
   path: string,
   query: Record<string, unknown> = {}
 ): string {
-  const qs = Object.entries(query)
-    .filter(([, v]) => v !== undefined && v !== null)
-    .map(([k, v]) => `${k}=${v}`)
-    .join("&");
+  const params = new URLSearchParams();
+  for (const [k, v] of Object.entries(query)) {
+    if (v === undefined || v === null) {
+      continue;
+    }
+    params.set(k, String(v));
+  }
+  const qs = params.toString();
   return qs ? `${path}?${qs}` : path;
 }
 

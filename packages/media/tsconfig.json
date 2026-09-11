@@ -4,7 +4,8 @@
     "outDir": "./dist",
     "rootDir": "./src",
     "strictNullChecks": true,
-    "lib": ["ESNext", "DOM"]
+    "lib": ["ESNext", "DOM"],
+    "types": ["vitest/browser", "node"]
   },
   "include": ["src", "test"],
   "exclude": ["node_modules", "dist"]

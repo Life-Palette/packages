@@ -1,0 +1,281 @@
+---
+interface Props {
+  /** Optional initial sample — when provided, the demo runs without user input. */
+  sample?: string;
+}
+
+const { sample = "" } = Astro.props;
+---
+
+<figure class="demo" data-sample={sample}>
+  <div class="demo-controls">
+    <label class="file-label">
+      <input type="file" accept="image/*" hidden />
+      <span class="file-button">选择图片</span>
+      <span class="file-name">未选择</span>
+    </label>
+    <button class="analyze-button" type="button" disabled>分析</button>
+  </div>
+
+  <div class="demo-output" hidden>
+    <div class="meta">
+      <div><dt>MD5</dt><dd class="md5 mono">—</dd></div>
+      <div><dt>类型</dt><dd class="type">—</dd></div>
+      <div><dt>尺寸</dt><dd class="dimensions">—</dd></div>
+    </div>
+    <div class="hashes">
+      <div><dt>BlurHash</dt><dd class="blurhash mono">—</dd></div>
+      <div><dt>ArtHash</dt><dd class="arthash mono">—</dd></div>
+    </div>
+    <div class="colors" aria-label="主色"></div>
+    <details class="raw">
+      <summary>查看完整 JSON</summary>
+      <pre class="json mono"></pre>
+    </details>
+  </div>
+
+  <div class="demo-error" role="alert" hidden></div>
+
+  <figcaption>直接调用 <code>@life-palette/media</code>，无任何框架</figcaption>
+</figure>
+
+<style>
+  .demo {
+    border: 1px solid var(--sl-color-gray-3);
+    border-radius: 0.5rem;
+    padding: 1rem;
+    margin: 1.5rem 0;
+    background: var(--sl-color-gray-1);
+  }
+
+  .demo-controls {
+    display: flex;
+    align-items: center;
+    gap: 0.75rem;
+    margin-bottom: 0.75rem;
+  }
+
+  .file-label {
+    display: inline-flex;
+    align-items: center;
+    gap: 0.5rem;
+    cursor: pointer;
+  }
+
+  .file-button {
+    padding: 0.4rem 0.75rem;
+    background: var(--sl-color-accent);
+    color: var(--sl-color-white);
+    border-radius: 0.375rem;
+    font-size: 0.875rem;
+  }
+
+  .file-name {
+    font-size: 0.875rem;
+    color: var(--sl-color-gray-5);
+    max-width: 16rem;
+    overflow: hidden;
+    text-overflow: ellipsis;
+    white-space: nowrap;
+  }
+
+  .analyze-button {
+    margin-left: auto;
+    padding: 0.4rem 0.75rem;
+    border: 1px solid var(--sl-color-gray-3);
+    background: transparent;
+    border-radius: 0.375rem;
+    color: var(--sl-color-gray-6);
+    font-size: 0.875rem;
+    cursor: pointer;
+  }
+
+  .analyze-button:disabled {
+    opacity: 0.4;
+    cursor: not-allowed;
+  }
+
+  .demo-output {
+    display: grid;
+    gap: 0.75rem;
+  }
+
+  .demo-output dl {
+    display: grid;
+    gap: 0.25rem;
+    margin: 0;
+  }
+
+  .demo-output dl div {
+    display: grid;
+    grid-template-columns: 6rem 1fr;
+    gap: 0.5rem;
+    align-items: baseline;
+  }
+
+  .demo-output dt {
+    font-size: 0.75rem;
+    text-transform: uppercase;
+    color: var(--sl-color-gray-5);
+    letter-spacing: 0.04em;
+  }
+
+  .demo-output dd {
+    margin: 0;
+    font-size: 0.875rem;
+    color: var(--sl-color-gray-6);
+    overflow-wrap: anywhere;
+  }
+
+  .meta,
+  .hashes {
+    background: var(--sl-color-white);
+    border: 1px solid var(--sl-color-gray-3);
+    border-radius: 0.375rem;
+    padding: 0.5rem 0.75rem;
+  }
+
+  .colors {
+    display: grid;
+    grid-template-columns: repeat(auto-fill, minmax(96px, 1fr));
+    gap: 0.5rem;
+  }
+
+  .colors:empty {
+    display: none;
+  }
+
+  .color-swatch {
+    border: 1px solid var(--sl-color-gray-3);
+    border-radius: 0.375rem;
+    overflow: hidden;
+    font-size: 0.75rem;
+  }
+
+  .color-swatch .chip {
+    height: 2.25rem;
+  }
+
+  .color-swatch .caption {
+    padding: 0.25rem 0.5rem;
+    background: var(--sl-color-white);
+    color: var(--sl-color-gray-6);
+    display: flex;
+    justify-content: space-between;
+  }
+
+  .raw summary {
+    cursor: pointer;
+    color: var(--sl-color-gray-5);
+    font-size: 0.875rem;
+  }
+
+  .raw pre {
+    margin: 0.5rem 0 0;
+    background: var(--sl-color-white);
+    border: 1px solid var(--sl-color-gray-3);
+    border-radius: 0.375rem;
+    padding: 0.75rem;
+    max-height: 24rem;
+    overflow: auto;
+    font-size: 0.75rem;
+  }
+
+  figcaption {
+    margin-top: 0.5rem;
+    color: var(--sl-color-gray-5);
+    font-size: 0.75rem;
+  }
+</style>
+
+<script>
+  import { analyzeMedia, type MediaAnalysisResult } from "@life-palette/media";
+
+  type DemoEl = HTMLElement & {
+    querySelector: <T extends Element = Element>(selectors: string) => T | null;
+  };
+
+  const demos = document.querySelectorAll<DemoEl>(".demo");
+  for (const demo of Array.from(demos)) {
+    const fileInput = demo.querySelector<HTMLInputElement>('input[type="file"]')!;
+    const fileName = demo.querySelector<HTMLElement>(".file-name")!;
+    const analyzeBtn = demo.querySelector<HTMLButtonElement>(".analyze-button")!;
+    const output = demo.querySelector<HTMLElement>(".demo-output")!;
+    const errorBox = demo.querySelector<HTMLElement>(".demo-error")!;
+    const md5El = demo.querySelector<HTMLElement>(".md5")!;
+    const typeEl = demo.querySelector<HTMLElement>(".type")!;
+    const dimensionsEl = demo.querySelector<HTMLElement>(".dimensions")!;
+    const blurhashEl = demo.querySelector<HTMLElement>(".blurhash")!;
+    const arthashEl = demo.querySelector<HTMLElement>(".arthash")!;
+    const colorsEl = demo.querySelector<HTMLElement>(".colors")!;
+    const jsonEl = demo.querySelector<HTMLElement>(".json")!;
+
+    let pending: File | null = null;
+
+    const reset = () => {
+      output.hidden = true;
+      errorBox.hidden = true;
+      colorsEl.innerHTML = "";
+      jsonEl.textContent = "";
+    };
+
+    const renderColors = (colors: { hex: string; percentage: number }[]) => {
+      colorsEl.innerHTML = "";
+      for (const c of colors) {
+        const swatch = document.createElement("div");
+        swatch.className = "color-swatch";
+        swatch.innerHTML = `
+          <div class="chip" style="background:${c.hex}"></div>
+          <div class="caption">
+            <span class="mono">${c.hex}</span>
+            <span>${c.percentage.toFixed(1)}%</span>
+          </div>
+        `;
+        colorsEl.appendChild(swatch);
+      }
+    };
+
+    const runAnalysis = async (file: File) => {
+      reset();
+      errorBox.hidden = true;
+      try {
+        const result: MediaAnalysisResult = await analyzeMedia(file, {
+          includeRawExif: false,
+          colorCount: 5,
+        });
+        md5El.textContent = result.basic.md5;
+        typeEl.textContent = result.basic.type || "application/octet-stream";
+        dimensionsEl.textContent =
+          result.basic.width && result.basic.height
+            ? `${result.basic.width} × ${result.basic.height} px`
+            : "—";
+        blurhashEl.textContent = result.image?.blurhash ?? "—";
+        arthashEl.textContent = result.image?.arthash
+          ? `${result.image.arthash.slice(0, 32)}…`
+          : "—";
+        if (result.image?.colors) {
+          renderColors(result.image.colors);
+        }
+        jsonEl.textContent = JSON.stringify(result, null, 2);
+        output.hidden = false;
+      } catch (err) {
+        errorBox.textContent =
+          err instanceof Error ? err.message : "分析失败";
+        errorBox.hidden = false;
+      }
+    };
+
+    fileInput.addEventListener("change", () => {
+      const file = fileInput.files?.[0] ?? null;
+      pending = file;
+      fileName.textContent = file?.name ?? "未选择";
+      analyzeBtn.disabled = !file;
+    });
+
+    analyzeBtn.addEventListener("click", () => {
+      if (pending) {
+        void runAnalysis(pending);
+      }
+    });
+  }
+</script>

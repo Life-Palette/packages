@@ -1,0 +1,21 @@
+---
+import type { Props } from "@astrojs/starlight/props";
+import Search from "@astrojs/starlight/components/Search.astro";
+import SiteTitle from "@astrojs/starlight/components/SiteTitle.astro";
+
+const { ...rest } = Astro.props;
+---
+
+<div class="header-wrap">
+  <SiteTitle {...rest} />
+  <Search {...rest} />
+</div>
+
+<style>
+  .header-wrap {
+    display: flex;
+    align-items: center;
+    gap: 1rem;
+    width: 100%;
+  }
+</style>

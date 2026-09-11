@@ -1,0 +1,12 @@
+{
+  "extends": "astro/tsconfigs/strict",
+  "include": [".astro/types.d.ts", "**/*"],
+  "exclude": ["dist"],
+  "compilerOptions": {
+    "baseUrl": ".",
+    "paths": {
+      "@life-palette/utils/*": ["../../packages/utils/src/*"],
+      "@life-palette/media/*": ["../../packages/media/src/*"]
+    }
+  }
+}
