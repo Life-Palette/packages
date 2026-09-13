@@ -30,6 +30,7 @@ jobs:
         with:
           version: pnpm run version
           publish: pnpm release
+          createGithubReleases: true
           commit: "chore: release"
           title: "chore: release"
         env:
