@@ -1,6 +1,7 @@
 import { resolve } from "node:path";
 import { fileURLToPath } from "node:url";
 import { HstVue } from "@histoire/plugin-vue";
+import vue from "@vitejs/plugin-vue";
 import { defineConfig } from "histoire";
 
 const r = (p: string) =>
@@ -37,6 +38,7 @@ export default defineConfig({
     ],
   },
   vite: {
+    plugins: [vue()],
     resolve: {
       alias: {
         "@life-palette/media": r("../../packages/media/src/index.ts"),
