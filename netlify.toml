@@ -1,5 +1,6 @@
 [build]
-  command = "pnpm docs:build"
+  base = "."
+  command = "corepack enable && pnpm install --frozen-lockfile && pnpm docs:build"
   publish = "apps/docs/dist"
 
 [build.environment]
