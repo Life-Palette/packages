@@ -44,6 +44,7 @@ export default defineConfig({
         "@life-palette/media": r("../../packages/media/src/index.ts"),
         "@life-palette/uploader": r("../../packages/uploader/src/index.ts"),
         "@life-palette/utils": r("../../packages/utils/src/index.ts"),
+        metaprobe: r("../../node_modules/metaprobe/wasm/index.js"),
       },
     },
   },
