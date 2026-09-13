@@ -7,12 +7,23 @@ const pkg = (name: string) =>
 
 // https://vite.dev/config/
 export default defineConfig({
+  optimizeDeps: {
+    // arthash imports its wasm-bindgen glue via a relative package path;
+    // excluding it prevents Vite's dep optimizer from rewriting the wasm URL.
+    exclude: ["arthash", "metaprobe"],
+  },
   plugins: [vue()],
   resolve: {
     alias: {
-      "@life-palette/utils": pkg("utils"),
       "@life-palette/media": pkg("media"),
       "@life-palette/uploader": pkg("uploader"),
+      "@life-palette/utils": pkg("utils"),
+    },
+  },
+  server: {
+    fs: {
+      allow: ["D:/dev/lp/packages"],
+      strict: false,
     },
   },
 });

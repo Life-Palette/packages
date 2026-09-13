@@ -6,13 +6,13 @@
  */
 
 import {
+  type AnalyzeMediaOptions,
   analyzeMedia,
   hashBlob,
-  type AnalyzeMediaOptions,
   type MediaAnalysisResult,
 } from "@life-palette/media";
-import { PromisePool, withRetry } from "./pool";
 import { detectLivePhotoPairs } from "./live-photo";
+import { PromisePool, withRetry } from "./pool";
 
 // ============ 类型 ============
 
@@ -21,6 +21,7 @@ export interface OSSFile {
   arthash?: string;
   arthash_codec?: string;
   blurhash?: string;
+  colors?: unknown[];
   created_at: string;
   file_md5: string;
   height?: number;
@@ -35,7 +36,6 @@ export interface OSSFile {
   updated_at: string;
   url: string;
   width?: number;
-  colors?: unknown[];
 }
 
 export interface UploadToken {
@@ -66,6 +66,10 @@ export interface UploadProgress {
 }
 
 export interface UploadOptions {
+  /** 媒体分析参数 */
+  analysis?: Omit<AnalyzeMediaOptions, "onProgress">;
+  /** 是否在上传前执行浏览器端媒体分析，默认 true */
+  analyze?: boolean;
   /** 压缩图片 */
   compress?: boolean;
   /** 是否私有 */
@@ -74,14 +78,10 @@ export interface UploadOptions {
   location?: { lat: number; lng: number };
   /** 最大文件大小 MB（压缩用） */
   maxSizeMB?: number;
-  /** 是否在上传前执行浏览器端媒体分析，默认 true */
-  analyze?: boolean;
-  /** 媒体分析参数 */
-  analysis?: Omit<AnalyzeMediaOptions, "onProgress">;
-  /** 已经计算好的分析结果，可避免上传前重复分析 */
-  precomputedAnalysis?: MediaAnalysisResult;
   /** 进度回调 */
   onProgress?: (progress: UploadProgress) => void;
+  /** 已经计算好的分析结果，可避免上传前重复分析 */
+  precomputedAnalysis?: MediaAnalysisResult;
 }
 
 /** 仅上传文件到 OSS，不创建 DB 记录 */
@@ -99,6 +99,8 @@ export interface UploaderConfig {
   apiBaseUrl: string;
   /** 分片大小（字节），默认 5MB */
   chunkSize?: number;
+  /** 带浏览器 metadata 的完成接口，默认 /file/upload/complete */
+  completeEndpoint?: string;
   /** 获取 token 的函数 */
   getToken: () => string | null;
   /** 分片阈值（字节），默认 5MB */
@@ -107,8 +109,6 @@ export interface UploaderConfig {
   partConcurrency?: number;
   /** 单片失败重试次数，默认 3 */
   partRetries?: number;
-  /** 带浏览器 metadata 的完成接口，默认 /file/upload/complete */
-  completeEndpoint?: string;
 }
 
 // ============ 内部类型 ============
@@ -130,10 +130,13 @@ interface InitMultipartResponse {
   mode: "multipart";
   total_parts: number;
   upload_id: string;
-  uploaded_parts: number[];
   uploaded_part_etags?: CompletePart[];
+  uploaded_parts: number[];
 }
-type InitResponse = InitExistsResponse | InitSimpleResponse | InitMultipartResponse;
+type InitResponse =
+  | InitExistsResponse
+  | InitSimpleResponse
+  | InitMultipartResponse;
 
 interface UploadUrlEntry {
   part_number: number;
@@ -154,6 +157,7 @@ export function createOssUploader(config: UploaderConfig) {
     partRetries = 3,
     completeEndpoint = "/file/upload/complete",
   } = config;
+  const uploadPath = "/file/upload";
 
   // --- HTTP 工具 ---
 
@@ -164,12 +168,12 @@ export function createOssUploader(config: UploaderConfig) {
   ): Promise<T> {
     const token = getToken();
     const res = await fetch(`${apiBaseUrl}${endpoint}`, {
-      method,
+      body: JSON.stringify(body),
       headers: {
         "Content-Type": "application/json",
         ...(token ? { Authorization: `Bearer ${token}` } : {}),
       },
-      body: JSON.stringify(body),
+      method,
     });
     const data = await res.json();
     if (!res.ok || (data.code && data.code >= 400)) {
@@ -194,7 +198,7 @@ export function createOssUploader(config: UploaderConfig) {
     if (chunk) {
       body.chunk_size = chunk;
     }
-    return request<InitResponse>("/file/upload/init", "POST", body);
+    return request<InitResponse>(`${uploadPath}/init`, "POST", body);
   }
 
   function completeUpload(data: {
@@ -213,11 +217,11 @@ export function createOssUploader(config: UploaderConfig) {
   }
 
   function getPartUrls(key: string, uploadId: string, partNumbers: number[]) {
-    return request<{ urls: UploadUrlEntry[] }>(
-      "/file/upload/urls",
-      "POST",
-      { key, upload_id: uploadId, part_numbers: partNumbers }
-    );
+    return request<{ urls: UploadUrlEntry[] }>(`${uploadPath}/urls`, "POST", {
+      key,
+      part_numbers: partNumbers,
+      upload_id: uploadId,
+    });
   }
 
   // --- 图片压缩 ---
@@ -232,8 +236,8 @@ export function createOssUploader(config: UploaderConfig) {
       );
       const compressed = await imageCompression(file, {
         maxSizeMB,
-        useWebWorker: true,
         preserveExif: true,
+        useWebWorker: true,
       });
       return compressed.name
         ? compressed
@@ -279,22 +283,26 @@ export function createOssUploader(config: UploaderConfig) {
 
   // --- 单片上传（带 Content-Type + 重试） ---
 
-  async function uploadPart(
-    part: { partNumber: number; url: string; blob: Blob }
-  ): Promise<CompletePart> {
+  async function uploadPart(part: {
+    partNumber: number;
+    url: string;
+    blob: Blob;
+  }): Promise<CompletePart> {
     return withRetry(async () => {
       const res = await fetch(part.url, {
-        method: "PUT",
-        headers: { "Content-Type": "application/octet-stream" },
         body: part.blob,
+        headers: { "Content-Type": "application/octet-stream" },
+        method: "PUT",
       });
       if (!res.ok) {
-        throw new Error(`Failed to upload part ${part.partNumber}: ${res.status}`);
+        throw new Error(
+          `Failed to upload part ${part.partNumber}: ${res.status}`
+        );
       }
       const etag = res.headers.get("ETag") || "";
       return {
-        part_number: part.partNumber,
         etag: etag.replace(/"/g, ""),
+        part_number: part.partNumber,
       };
     }, partRetries);
   }
@@ -344,12 +352,9 @@ export function createOssUploader(config: UploaderConfig) {
           throw new Error(`No URL for part ${partNumber}`);
         }
         const start = (partNumber - 1) * chunkSize;
-        const blob = file.slice(
-          start,
-          Math.min(start + chunkSize, file.size)
-        );
+        const blob = file.slice(start, Math.min(start + chunkSize, file.size));
         return () =>
-          uploadPart({ partNumber, url, blob }).then((part) => {
+          uploadPart({ blob, partNumber, url }).then((part) => {
             parts.push(part);
             uploaded += 1;
             onProgress?.(Math.round((uploaded / pending.length) * 100));
@@ -363,13 +368,13 @@ export function createOssUploader(config: UploaderConfig) {
     onProgress?.(100);
 
     return completeUpload({
-      key,
-      upload_id: uid,
-      md5,
       file_name: file.name,
       file_size: file.size,
-      parts,
       is_private: isPrivate,
+      key,
+      md5,
+      parts,
+      upload_id: uid,
       ...(location ? { lat: location.lat, lng: location.lng } : {}),
       metadata,
     });
@@ -388,16 +393,16 @@ export function createOssUploader(config: UploaderConfig) {
     let processed = file;
 
     if (shouldCompress && file.type.startsWith("image/")) {
-      onProgress?.({ stage: "compress", percent: 0 });
+      onProgress?.({ percent: 0, stage: "compress" });
       processed = await compress(file, maxSizeMB);
-      onProgress?.({ stage: "compress", percent: 100 });
+      onProgress?.({ percent: 100, stage: "compress" });
     }
 
-    onProgress?.({ stage: "md5", percent: 0 });
+    onProgress?.({ percent: 0, stage: "md5" });
     const md5 = await hashBlob(processed);
-    onProgress?.({ stage: "md5", percent: 100 });
+    onProgress?.({ percent: 100, stage: "md5" });
 
-    onProgress?.({ stage: "upload", percent: 0 });
+    onProgress?.({ percent: 0, stage: "upload" });
     const init = await initUpload(
       processed.name,
       processed.size,
@@ -406,25 +411,25 @@ export function createOssUploader(config: UploaderConfig) {
     );
 
     if (init.exists) {
-      onProgress?.({ stage: "complete", percent: 100 });
+      onProgress?.({ percent: 100, stage: "complete" });
       return {
-        key: init.file.url.replace(RE_HOST_PREFIX, ""),
-        md5: init.file.file_md5,
         file_name: processed.name,
         file_size: processed.size,
+        key: init.file.url.replace(RE_HOST_PREFIX, ""),
+        md5: init.file.file_md5,
       };
     }
 
     if (init.mode === "simple") {
       await simpleUpload(init.token, processed, (pct) =>
-        onProgress?.({ stage: "upload", percent: pct })
+        onProgress?.({ percent: pct, stage: "upload" })
       );
-      onProgress?.({ stage: "complete", percent: 100 });
+      onProgress?.({ percent: 100, stage: "complete" });
       return {
-        key: init.token.key,
-        md5,
         file_name: processed.name,
         file_size: processed.size,
+        key: init.token.key,
+        md5,
       };
     }
 
@@ -451,21 +456,21 @@ export function createOssUploader(config: UploaderConfig) {
           start,
           Math.min(start + chunkSize, processed.size)
         );
-        return () => uploadPart({ partNumber, url, blob });
+        return () => uploadPart({ blob, partNumber, url });
       });
       const collected = await Promise.all(tasks.map((t) => pool.run(t)));
       collected.sort((a, b) => a.part_number - b.part_number);
       parts.push(...collected);
     }
 
-    onProgress?.({ stage: "complete", percent: 100 });
+    onProgress?.({ percent: 100, stage: "complete" });
     return {
-      key,
-      md5,
       file_name: processed.name,
       file_size: processed.size,
-      upload_id: uid,
+      key,
+      md5,
       parts,
+      upload_id: uid,
     };
   }
 
@@ -489,9 +494,9 @@ export function createOssUploader(config: UploaderConfig) {
     let processed = file;
 
     if (shouldCompress && file.type.startsWith("image/")) {
-      onProgress?.({ stage: "compress", percent: 0 });
+      onProgress?.({ percent: 0, stage: "compress" });
       processed = await compress(file, maxSizeMB);
-      onProgress?.({ stage: "compress", percent: 100 });
+      onProgress?.({ percent: 100, stage: "compress" });
     }
 
     let metadata: MediaAnalysisResult | undefined;
@@ -503,34 +508,43 @@ export function createOssUploader(config: UploaderConfig) {
         throw new Error("预计算媒体分析结果缺少 MD5");
       }
     } else if (shouldAnalyze) {
-      onProgress?.({ stage: "analyze", percent: 0 });
+      onProgress?.({ percent: 0, stage: "analyze" });
       metadata = await analyzeMedia(processed, {
         ...analysisOptions,
         onProgress: ({ stage, percent }) => {
           if (stage === "md5") {
-            onProgress?.({ stage: "analyze", percent: Math.round(percent * 0.35) });
+            onProgress?.({
+              percent: Math.round(percent * 0.35),
+              stage: "analyze",
+            });
           } else if (stage === "decode") {
-            onProgress?.({ stage: "analyze", percent: 35 + Math.round(percent * 0.35) });
+            onProgress?.({
+              percent: 35 + Math.round(percent * 0.35),
+              stage: "analyze",
+            });
           } else {
-            onProgress?.({ stage: "analyze", percent: 70 + Math.round(percent * 0.3) });
+            onProgress?.({
+              percent: 70 + Math.round(percent * 0.3),
+              stage: "analyze",
+            });
           }
         },
       });
       md5 = metadata.basic.md5;
     } else {
-      onProgress?.({ stage: "md5", percent: 0 });
+      onProgress?.({ percent: 0, stage: "md5" });
       md5 = await hashBlob(processed);
       metadata = {
-        schema_version: 1,
         basic: {
-          name: processed.name,
-          type: processed.type,
           extension: processed.name.includes(".")
             ? processed.name.slice(processed.name.lastIndexOf("."))
             : "",
-          size: processed.size,
           md5,
+          name: processed.name,
+          size: processed.size,
+          type: processed.type,
         },
+        schema_version: 1,
       };
     }
 
@@ -538,7 +552,7 @@ export function createOssUploader(config: UploaderConfig) {
       throw new Error("媒体 metadata 生成失败");
     }
 
-    onProgress?.({ stage: "upload", percent: 0 });
+    onProgress?.({ percent: 0, stage: "upload" });
     const result =
       processed.size >= multipartThreshold
         ? await multipartUpload(
@@ -547,7 +561,7 @@ export function createOssUploader(config: UploaderConfig) {
             metadata,
             isPrivate,
             location,
-            (pct) => onProgress?.({ stage: "upload", percent: pct })
+            (pct) => onProgress?.({ percent: pct, stage: "upload" })
           )
         : await simpleUploadWithComplete(
             processed,
@@ -555,10 +569,10 @@ export function createOssUploader(config: UploaderConfig) {
             metadata,
             isPrivate,
             location,
-            (pct) => onProgress?.({ stage: "upload", percent: pct })
+            (pct) => onProgress?.({ percent: pct, stage: "upload" })
           );
 
-    onProgress?.({ stage: "complete", percent: 100 });
+    onProgress?.({ percent: 100, stage: "complete" });
     return result;
   }
 
@@ -588,11 +602,11 @@ export function createOssUploader(config: UploaderConfig) {
 
     onProgress?.(90);
     return completeUpload({
-      key: init.token.key,
-      md5,
       file_name: file.name,
       file_size: file.size,
       is_private: isPrivate,
+      key: init.token.key,
+      md5,
       ...(location ? { lat: location.lat, lng: location.lng } : {}),
       metadata,
     });
@@ -603,7 +617,7 @@ export function createOssUploader(config: UploaderConfig) {
   async function associateLivePhotos(results: OSSFile[]): Promise<OSSFile[]> {
     const associatedResults = [...results];
     for (const { image, video } of detectLivePhotoPairs(results)) {
-      if (!image || !video) {
+      if (!(image && video)) {
         continue;
       }
       try {
@@ -669,5 +683,5 @@ export function createOssUploader(config: UploaderConfig) {
     return associateLivePhotos(successes);
   }
 
-  return { upload, uploadBatch, uploadToOSS, associateLivePhotos };
+  return { associateLivePhotos, upload, uploadBatch, uploadToOSS };
 }

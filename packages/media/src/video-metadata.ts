@@ -1,195 +1,135 @@
-/**
- * 视频技术元数据（通过 mediainfo.js WASM 解析）
- */
-
-import type {
-  GeneralTrack,
-  MediaInfoFactoryOptions,
-  MediaInfoResult,
-  VideoTrack,
-} from "mediainfo.js";
+/** Video metadata extracted by the local metaprobe WASM package. */
+import initMetaprobe, { extractMetaFastSized } from "metaprobe";
 
 export interface VideoExifMetadata {
-  lat?: number;
-  lng?: number;
   altitude?: number;
-  taken_at?: string;
   device_make?: string;
   device_model?: string;
-  lens_model?: string;
-  f_number?: string;
   exposure_time?: string;
-  iso?: number;
+  f_number?: string;
   focal_length?: string;
+  iso?: number;
+  lat?: number;
+  lens_model?: string;
+  lng?: number;
+  taken_at?: string;
 }
-
 export interface VideoTechnicalMetadata {
+  bitrate?: number;
+  codec?: string;
+  creation_time?: string;
+  duration?: number;
+  exif?: VideoExifMetadata;
+  frame_rate?: number;
+  height?: number;
+  metadata?: Record<string, unknown>;
+  width?: number;
+}
+type Meta = {
   width?: number;
   height?: number;
   duration?: number;
-  creation_time?: string;
   codec?: string;
-  bitrate?: number;
-  frame_rate?: number;
-  exif?: VideoExifMetadata;
+  frameRate?: number;
+  overallBitrate?: number;
+  creationTime?: string;
+  containerCreationTime?: string;
+  exif?: Record<string, unknown>;
   metadata?: Record<string, unknown>;
-}
-
-type MediaInfoTrack = GeneralTrack | VideoTrack;
-
-function firstValue(
-  record: MediaInfoTrack | undefined,
-  ...keys: string[]
-): unknown {
-  if (!record) {
-    return undefined;
+};
+const num = (v: unknown) => {
+  const n = typeof v === "number" ? v : Number(v);
+  return Number.isFinite(n) ? n : undefined;
+};
+const str = (v: unknown) =>
+  typeof v === "string" && v.trim() ? v.trim() : undefined;
+const date = (v: unknown) => {
+  const s = str(v);
+  if (!s) {
+    return;
   }
-  const source = record as unknown as Record<string, unknown>;
-  for (const key of keys) {
-    if (source[key] !== undefined && source[key] !== null) {
-      return source[key];
-    }
-  }
-  return undefined;
-}
+  const normalized =
+    s.replace(/^UTC\s+/i, "").replace(" ", "T") +
+    (s.match(/^UTC\s+/i) ? "Z" : "");
+  const d = new Date(normalized);
+  return Number.isNaN(d.valueOf()) ? s : d.toISOString();
+};
+const clean = <T extends object>(v: T) =>
+  Object.fromEntries(Object.entries(v).filter(([, x]) => x !== undefined)) as T;
 
-function numberValue(value: unknown): number | undefined {
-  const result = typeof value === "number" ? value : Number(value);
-  return Number.isFinite(result) ? result : undefined;
-}
-
-function stringValue(value: unknown): string | undefined {
-  return typeof value === "string" && value.trim() ? value.trim() : undefined;
-}
-
-function dateValue(value: unknown): string | undefined {
-  const text = stringValue(value)?.replace(/^UTC\s+/i, "");
-  if (!text) {
-    return undefined;
-  }
-  const normalized = /(?:Z|[+-]\d{2}:?\d{2})$/i.test(text) ? text : `${text}Z`;
-  const date = new Date(normalized);
-  return Number.isNaN(date.valueOf()) ? undefined : date.toISOString();
-}
-
-function parseRecordedLocation(
-  value: unknown
-): Pick<VideoExifMetadata, "lat" | "lng" | "altitude"> {
-  const text = stringValue(value);
-  if (!text) {
+/** Compatibility mapper for callers that still provide the old MediaInfo shape. */
+export function mapMediaInfoResult(input: {
+  media?: { track?: Array<Record<string, unknown>> };
+}): VideoTechnicalMetadata {
+  const tracks = input.media?.track ?? [];
+  if (!tracks.length) {
     return {};
   }
-
-  const match = text.match(
-    /([+-]?\d+(?:\.\d+)?)\s*°?\s*([NS])\s+([+-]?\d+(?:\.\d+)?)\s*°?\s*([EW])(?:\s+([+-]?\d+(?:\.\d+)?)\s*m)?/i
+  const general = tracks.find((t) => t["@type"] === "General") ?? {};
+  const video = tracks.find((t) => t["@type"] === "Video") ?? {};
+  const location = str(general.Recorded_Location)?.match(
+    /([+-]?\d+(?:\.\d+)?)°?\s*([NS]).*?([+-]?\d+(?:\.\d+)?)°?\s*([EW]).*?(\d+(?:\.\d+)?)m/i
   );
-  if (!match) {
-    return {};
-  }
-
-  const latitude = numberValue(match[1]);
-  const longitude = numberValue(match[3]);
-  const altitude = numberValue(match[5]);
-  return removeUndefined({
-    lat:
-      latitude === undefined
-        ? undefined
-        : /S/i.test(match[2] ?? "")
-          ? -Math.abs(latitude)
-          : Math.abs(latitude),
-    lng:
-      longitude === undefined
-        ? undefined
-        : /W/i.test(match[4] ?? "")
-          ? -Math.abs(longitude)
-          : Math.abs(longitude),
-    altitude,
+  return clean({
+    bitrate: num(video.BitRate),
+    codec: str(video.Format),
+    creation_time: date(general.Encoded_Date),
+    duration: num(general.Duration),
+    exif: location
+      ? {
+          altitude: num(location[5]),
+          device_make: str(general.Encoded_Hardware_CompanyName),
+          device_model: str(general.Encoded_Hardware_Name),
+          lat: num(location[1]),
+          lng: num(location[3]),
+          taken_at: date(general.Encoded_Date),
+        }
+      : undefined,
+    frame_rate: num(video.FrameRate),
+    height: num(video.Height),
+    metadata: { general, video },
+    width: num(video.Width),
   });
 }
 
-function compactTrack(
-  track: MediaInfoTrack | undefined
-): Record<string, unknown> | undefined {
-  if (!track) {
+function mapExif(e?: Record<string, unknown>): VideoExifMetadata | undefined {
+  if (!e) {
     return undefined;
   }
-  return Object.fromEntries(
-    Object.entries(track).filter(([, value]) => value !== undefined && value !== null)
-  );
-}
-
-function removeUndefined<T extends object>(value: T): T {
-  return Object.fromEntries(
-    Object.entries(value).filter(([, item]) => item !== undefined)
-  ) as T;
-}
-
-export function mapMediaInfoResult(result: MediaInfoResult): VideoTechnicalMetadata {
-  const tracks = result.media?.track ?? [];
-  const general = tracks.find(
-    (track): track is GeneralTrack => track["@type"] === "General"
-  );
-  const video = tracks.find((track): track is VideoTrack => track["@type"] === "Video");
-  const location = parseRecordedLocation(firstValue(general, "Recorded_Location"));
-  const creationTime = dateValue(
-    firstValue(general, "Recorded_Date", "Encoded_Date", "Tagged_Date") ??
-      firstValue(video, "Encoded_Date", "Tagged_Date")
-  );
-  const exif = removeUndefined({
-    ...location,
-    taken_at: creationTime,
-    device_make: stringValue(
-      firstValue(general, "Encoded_Hardware_CompanyName", "Encoded_Library_CompanyName")
-    ),
-    device_model: stringValue(
-      firstValue(general, "Encoded_Hardware_Name", "Encoded_Application_Name")
-    ),
+  const v = clean({
+    altitude: num(e.altitude ?? e.GPSAltitude),
+    device_make: str(e.Make),
+    device_model: str(e.Model),
+    exposure_time: str(e.ExposureTime),
+    f_number: str(e.FNumber),
+    focal_length: str(e.FocalLength),
+    iso: num(e.ISO ?? e.PhotographicSensitivity),
+    lat: num(e.latitude ?? e.GPSLatitude),
+    lens_model: str(e.LensModel),
+    lng: num(e.longitude ?? e.GPSLongitude),
+    taken_at: date(e.DateTimeOriginalISO ?? e.DateTimeOriginal),
   });
-  const metadata = removeUndefined({
-    general: compactTrack(general),
-    video: compactTrack(video),
-  });
-
-  return removeUndefined({
-    width: numberValue(firstValue(video, "Width", "Width_Original")),
-    height: numberValue(firstValue(video, "Height", "Height_Original")),
-    duration: numberValue(firstValue(video, "Duration") ?? firstValue(general, "Duration")),
-    creation_time: creationTime,
-    codec: stringValue(
-      firstValue(
-        video,
-        "Format_Commercial",
-        "Format_String",
-        "Format",
-        "CodecID_String",
-        "CodecID"
-      )
-    ),
-    bitrate: numberValue(firstValue(video, "BitRate", "BitRate_Nominal")),
-    frame_rate: numberValue(firstValue(video, "FrameRate", "FrameRate_Nominal")),
-    exif: Object.keys(exif).length > 0 ? exif : undefined,
-    metadata: Object.keys(metadata).length > 0 ? metadata : undefined,
-  });
+  return Object.keys(v).length ? v : undefined;
 }
 
 export async function loadMediaInfoVideoMetadata(
-  file: Blob
+  file: Blob & { name?: string }
 ): Promise<VideoTechnicalMetadata> {
-  const { default: mediaInfoFactory } = await import("mediainfo.js");
-  const factoryOptions: MediaInfoFactoryOptions<"object"> = { format: "object" };
-  // 源码被 Vite 打包时显式引入 WASM；发布包则使用 mediainfo.js 自己的路径解析。
-  if (!/[\\/]dist[\\/]index\.(?:mjs|cjs)$/.test(import.meta.url)) {
-    const wasmUrl = new URL("mediainfo.js/MediaInfoModule.wasm", import.meta.url).href;
-    factoryOptions.locateFile = () => wasmUrl;
-  }
-  const mediaInfo = await mediaInfoFactory(factoryOptions);
-  try {
-    const result = await mediaInfo.analyzeData(file.size, async (size, offset) => {
-      const buffer = await file.slice(offset, offset + size).arrayBuffer();
-      return new Uint8Array(buffer);
-    });
-    return mapMediaInfoResult(result);
-  } finally {
-    mediaInfo.close();
-  }
+  await initMetaprobe();
+  const m = extractMetaFastSized(
+    new Uint8Array(await file.arrayBuffer()),
+    file.name ?? "",
+    file.size
+  ) as Meta;
+  return clean({
+    bitrate: num(m.overallBitrate),
+    codec: str(m.codec),
+    creation_time: date(m.creationTime ?? m.containerCreationTime),
+    duration: num(m.duration),
+    exif: mapExif(m.exif),
+    frame_rate: num(m.frameRate),
+    height: num(m.height),
+    metadata: m.metadata,
+    width: num(m.width),
+  });
 }

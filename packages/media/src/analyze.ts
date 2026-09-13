@@ -6,7 +6,7 @@
 
 import { codec, encode as encodeArthash } from "arthash";
 import { encode as encodeBlurhash } from "blurhash";
-import exifr from "exifr";
+import initMetaprobe, { extractMetaFastSized } from "metaprobe";
 import { hashBlob } from "./hash";
 import {
   loadMediaInfoVideoMetadata,
@@ -17,53 +17,52 @@ export const MEDIA_ANALYSIS_SCHEMA_VERSION = 1 as const;
 export const ARTHASH_CODEC = "rect-v64" as const;
 
 export interface MediaColor {
-  hex: string;
-  r: number;
-  g: number;
   b: number;
-  percentage: number;
+  g: number;
+  hex: string;
   is_primary: boolean;
+  percentage: number;
+  r: number;
   rank: number;
 }
 
 export interface ImageExif {
-  orientation?: number;
-  lat?: number;
-  lng?: number;
   altitude?: number;
-  taken_at?: string;
   device_make?: string;
   device_model?: string;
-  lens_model?: string;
-  f_number?: string;
   exposure_time?: string;
-  iso?: number;
+  f_number?: string;
   focal_length?: string;
+  iso?: number;
+  lat?: number;
+  lens_model?: string;
+  lng?: number;
+  orientation?: number;
   raw?: Record<string, unknown>;
+  taken_at?: string;
 }
 
 export interface ImageMediaAnalysis {
-  blurhash?: string;
   arthash?: string;
   arthash_codec?: typeof ARTHASH_CODEC;
+  blurhash?: string;
   colors: MediaColor[];
   exif: ImageExif;
 }
 
 export interface VideoMediaAnalysis {
-  width?: number;
-  height?: number;
-  duration?: number;
-  creation_time?: string;
-  codec?: string;
   bitrate?: number;
-  frame_rate?: number;
+  codec?: string;
+  creation_time?: string;
+  duration?: number;
   exif?: ImageExif;
+  frame_rate?: number;
+  height?: number;
   metadata?: Record<string, unknown>;
+  width?: number;
 }
 
 export interface MediaAnalysisResult {
-  schema_version: typeof MEDIA_ANALYSIS_SCHEMA_VERSION;
   basic: {
     name: string;
     type: string;
@@ -74,29 +73,33 @@ export interface MediaAnalysisResult {
     height?: number;
   };
   image?: ImageMediaAnalysis;
+  schema_version: typeof MEDIA_ANALYSIS_SCHEMA_VERSION;
   video?: VideoMediaAnalysis;
 }
 
 export interface AnalyzeMediaOptions {
-  /** Include the complete parsed EXIF/XMP object. Disabled by default for privacy and payload size. */
-  includeRawExif?: boolean;
-  /** Number of dominant colors to return. Defaults to the backend's current five-color contract. */
-  colorCount?: number;
+  /** Maximum dimension used for browser-side image analysis. */
+  analysisMaxDimension?: number;
   /** BlurHash horizontal component count. */
   blurhashComponentX?: number;
   /** BlurHash vertical component count. */
   blurhashComponentY?: number;
-  /** Maximum dimension used for browser-side image analysis. */
-  analysisMaxDimension?: number;
-  onProgress?: (progress: { stage: "md5" | "decode" | "analyze"; percent: number }) => void;
+  /** Number of dominant colors to return. Defaults to the backend's current five-color contract. */
+  colorCount?: number;
+  /** Include the complete parsed EXIF/XMP object. Disabled by default for privacy and payload size. */
+  includeRawExif?: boolean;
+  onProgress?: (progress: {
+    stage: "md5" | "decode" | "analyze";
+    percent: number;
+  }) => void;
 }
 
 interface RasterImage {
-  width: number;
   height: number;
-  sourceWidth: number;
-  sourceHeight: number;
   rgba: Uint8ClampedArray;
+  sourceHeight: number;
+  sourceWidth: number;
+  width: number;
 }
 
 type RecordValue = Record<string, unknown>;
@@ -136,7 +139,10 @@ function isImageFile(file: Blob & { name?: string }): boolean {
   );
 }
 
-function createCanvas(width: number, height: number): OffscreenCanvas | HTMLCanvasElement {
+function createCanvas(
+  width: number,
+  height: number
+): OffscreenCanvas | HTMLCanvasElement {
   if (typeof OffscreenCanvas !== "undefined") {
     return new OffscreenCanvas(width, height);
   }
@@ -159,9 +165,14 @@ function get2DContext(
   return context;
 }
 
-async function decodeImage(file: Blob, maxDimension: number): Promise<RasterImage> {
+async function decodeImage(
+  file: Blob,
+  maxDimension: number
+): Promise<RasterImage> {
   if (typeof createImageBitmap === "function") {
-    const bitmap = await createImageBitmap(file, { imageOrientation: "from-image" });
+    const bitmap = await createImageBitmap(file, {
+      imageOrientation: "from-image",
+    });
     try {
       return rasterize(bitmap, bitmap.width, bitmap.height, maxDimension);
     } finally {
@@ -181,7 +192,12 @@ async function decodeImage(file: Blob, maxDimension: number): Promise<RasterImag
       element.onerror = () => reject(new Error("图片解码失败"));
       element.src = url;
     });
-    return rasterize(image, image.naturalWidth, image.naturalHeight, maxDimension);
+    return rasterize(
+      image,
+      image.naturalWidth,
+      image.naturalHeight,
+      maxDimension
+    );
   } finally {
     URL.revokeObjectURL(url);
   }
@@ -201,12 +217,16 @@ function rasterize(
   const context = get2DContext(canvas);
   context.drawImage(source, 0, 0, width, height);
   const imageData = context.getImageData(0, 0, width, height);
-  return { width, height, sourceWidth, sourceHeight, rgba: imageData.data };
+  return { height, rgba: imageData.data, sourceHeight, sourceWidth, width };
 }
 
 function rgbBytes(rgba: Uint8ClampedArray): Uint8Array {
   const rgb = new Uint8Array((rgba.length / 4) * 3);
-  for (let source = 0, target = 0; source < rgba.length; source += 4, target += 3) {
+  for (
+    let source = 0, target = 0;
+    source < rgba.length;
+    source += 4, target += 3
+  ) {
     rgb[target] = rgba[source] ?? 0;
     rgb[target + 1] = rgba[source + 1] ?? 0;
     rgb[target + 2] = rgba[source + 2] ?? 0;
@@ -219,7 +239,7 @@ function bytesToBase64(bytes: Uint8Array): string {
     throw new Error("当前环境不支持 Base64 编码");
   }
   let binary = "";
-  const chunkSize = 0x8000;
+  const chunkSize = 0x80_00;
   for (let index = 0; index < bytes.length; index += chunkSize) {
     binary += String.fromCharCode(...bytes.subarray(index, index + chunkSize));
   }
@@ -230,8 +250,14 @@ function toHex(value: number): string {
   return value.toString(16).padStart(2, "0");
 }
 
-function extractColors(rgba: Uint8ClampedArray, maxColors: number): MediaColor[] {
-  const colorMap = new Map<string, { r: number; g: number; b: number; count: number }>();
+function extractColors(
+  rgba: Uint8ClampedArray,
+  maxColors: number
+): MediaColor[] {
+  const colorMap = new Map<
+    string,
+    { r: number; g: number; b: number; count: number }
+  >();
   const totalPixels = rgba.length / 4;
   const step = totalPixels > 100_000 ? 3 : totalPixels > 50_000 ? 2 : 1;
   let sampledPixels = 0;
@@ -253,7 +279,7 @@ function extractColors(rgba: Uint8ClampedArray, maxColors: number): MediaColor[]
     if (current) {
       current.count += 1;
     } else {
-      colorMap.set(key, { r, g, b, count: 1 });
+      colorMap.set(key, { b, count: 1, g, r });
     }
     sampledPixels += 1;
   }
@@ -266,17 +292,20 @@ function extractColors(rgba: Uint8ClampedArray, maxColors: number): MediaColor[]
     .sort((left, right) => right.count - left.count)
     .slice(0, Math.max(0, maxColors))
     .map((color, rank) => ({
-      hex: `#${toHex(color.r)}${toHex(color.g)}${toHex(color.b)}`,
-      r: color.r,
-      g: color.g,
       b: color.b,
-      percentage: (color.count / sampledPixels) * 100,
+      g: color.g,
+      hex: `#${toHex(color.r)}${toHex(color.g)}${toHex(color.b)}`,
       is_primary: rank === 0,
+      percentage: (color.count / sampledPixels) * 100,
+      r: color.r,
       rank,
     }));
 }
 
-function valueFrom(record: RecordValue | undefined, ...keys: string[]): unknown {
+function valueFrom(
+  record: RecordValue | undefined,
+  ...keys: string[]
+): unknown {
   if (!record) {
     return undefined;
   }
@@ -319,43 +348,67 @@ function dateFrom(value: unknown): string | undefined {
 
 async function readExif(file: Blob, includeRaw: boolean): Promise<ImageExif> {
   try {
-    const parsed = (await exifr.parse(file, {
-      tiff: true,
-      exif: true,
-      gps: true,
-      xmp: true,
-      mergeOutput: true,
-      reviveValues: true,
-      sanitize: true,
-    })) as RecordValue | undefined;
-    const gps = await exifr.gps(file).catch(() => undefined);
+    await initMetaprobe();
+    const parsed = (
+      extractMetaFastSized(
+        new Uint8Array(await file.arrayBuffer()),
+        (file as File).name ?? "",
+        file.size
+      ) as { exif?: RecordValue }
+    ).exif;
+    const gps = parsed;
     const exif: ImageExif = {
-      orientation: numberFrom(valueFrom(parsed, "Orientation", "orientation")),
+      altitude: numberFrom(valueFrom(parsed, "GPSAltitude", "altitude")),
+      device_make: stringFrom(
+        valueFrom(parsed, "Make", "make", "DeviceManufacturer")
+      ),
+      device_model: stringFrom(
+        valueFrom(parsed, "Model", "model", "DeviceModel")
+      ),
+      exposure_time: stringFrom(
+        valueFrom(parsed, "ExposureTime", "exposure_time")
+      ),
+      f_number: stringFrom(valueFrom(parsed, "FNumber", "f_number")),
+      focal_length: stringFrom(
+        valueFrom(parsed, "FocalLength", "focal_length")
+      ),
+      iso: numberFrom(valueFrom(parsed, "ISO", "iso")),
       lat: numberFrom(
-        valueFrom(gps as RecordValue | undefined, "latitude", "GPSLatitude", "lat") ??
-          valueFrom(parsed, "latitude", "GPSLatitude")
+        valueFrom(
+          gps as RecordValue | undefined,
+          "latitude",
+          "GPSLatitude",
+          "lat"
+        ) ?? valueFrom(parsed, "latitude", "GPSLatitude")
+      ),
+      lens_model: stringFrom(
+        valueFrom(parsed, "LensModel", "Lens", "lens_model")
       ),
       lng: numberFrom(
-        valueFrom(gps as RecordValue | undefined, "longitude", "GPSLongitude", "lng") ??
-          valueFrom(parsed, "longitude", "GPSLongitude")
+        valueFrom(
+          gps as RecordValue | undefined,
+          "longitude",
+          "GPSLongitude",
+          "lng"
+        ) ?? valueFrom(parsed, "longitude", "GPSLongitude")
       ),
-      altitude: numberFrom(valueFrom(parsed, "GPSAltitude", "altitude")),
+      orientation: numberFrom(valueFrom(parsed, "Orientation", "orientation")),
       taken_at: dateFrom(
-        valueFrom(parsed, "DateTimeOriginal", "CreateDate", "CreationDate", "creation_time")
+        valueFrom(
+          parsed,
+          "DateTimeOriginal",
+          "CreateDate",
+          "CreationDate",
+          "creation_time"
+        )
       ),
-      device_make: stringFrom(valueFrom(parsed, "Make", "make", "DeviceManufacturer")),
-      device_model: stringFrom(valueFrom(parsed, "Model", "model", "DeviceModel")),
-      lens_model: stringFrom(valueFrom(parsed, "LensModel", "Lens", "lens_model")),
-      f_number: stringFrom(valueFrom(parsed, "FNumber", "f_number")),
-      exposure_time: stringFrom(valueFrom(parsed, "ExposureTime", "exposure_time")),
-      iso: numberFrom(valueFrom(parsed, "ISO", "iso")),
-      focal_length: stringFrom(valueFrom(parsed, "FocalLength", "focal_length")),
     };
     if (includeRaw && parsed) {
       exif.raw = parsed;
     }
     return removeUndefined(exif);
-  } catch {
+  } catch (error) {
+    console.error("metaprobe EXIF 解析失败:", error);
     return {};
   }
 }
@@ -373,7 +426,13 @@ async function analyzeImage(
   const raster = await decodeImage(file, options.analysisMaxDimension ?? 100);
   const componentX = options.blurhashComponentX ?? 4;
   const componentY = options.blurhashComponentY ?? 3;
-  const blurhash = encodeBlurhash(raster.rgba, raster.width, raster.height, componentX, componentY);
+  const blurhash = encodeBlurhash(
+    raster.rgba,
+    raster.width,
+    raster.height,
+    componentX,
+    componentY
+  );
   const hash = await encodeArthash(
     rgbBytes(raster.rgba),
     raster.width,
@@ -382,15 +441,15 @@ async function analyzeImage(
   );
   const exif = await readExif(file, options.includeRawExif ?? false);
   return {
-    width: raster.sourceWidth,
     height: raster.sourceHeight,
     image: {
-      blurhash,
       arthash: bytesToBase64(hash),
       arthash_codec: ARTHASH_CODEC,
+      blurhash,
       colors: extractColors(raster.rgba, options.colorCount ?? 5),
       exif,
     },
+    width: raster.sourceWidth,
   };
 }
 
@@ -405,18 +464,18 @@ async function analyzeVideo(
   });
   return {
     video: removeUndefined({
-      width: metadata.width,
-      height: metadata.height,
-      duration: metadata.duration,
-      creation_time: metadata.creation_time ?? exif.taken_at,
-      codec: metadata.codec,
       bitrate: metadata.bitrate,
-      frame_rate: metadata.frame_rate,
+      codec: metadata.codec,
+      creation_time: metadata.creation_time ?? exif.taken_at,
+      duration: metadata.duration,
       exif,
+      frame_rate: metadata.frame_rate,
+      height: metadata.height,
       metadata: removeUndefined({
         ...metadata.metadata,
         exif: exif.raw,
       }),
+      width: metadata.width,
     }),
   };
 }
@@ -438,9 +497,9 @@ async function loadVideoElementMetadata(
       video.src = url;
     });
     return removeUndefined({
-      width: video.videoWidth || undefined,
-      height: video.videoHeight || undefined,
       duration: Number.isFinite(video.duration) ? video.duration : undefined,
+      height: video.videoHeight || undefined,
+      width: video.videoWidth || undefined,
     });
   } finally {
     URL.revokeObjectURL(url);
@@ -450,17 +509,18 @@ async function loadVideoElementMetadata(
 async function loadVideoMetadata(
   file: Blob & { name?: string }
 ): Promise<VideoTechnicalMetadata> {
-  const browserMetadata: VideoTechnicalMetadata = await loadVideoElementMetadata(file).catch(
-    (): VideoTechnicalMetadata => ({})
-  );
+  const browserMetadata: VideoTechnicalMetadata =
+    await loadVideoElementMetadata(file).catch(
+      (): VideoTechnicalMetadata => ({})
+    );
   try {
     const mediaInfoMetadata = await loadMediaInfoVideoMetadata(file);
     return removeUndefined({
       ...browserMetadata,
       ...mediaInfoMetadata,
-      width: mediaInfoMetadata.width ?? browserMetadata.width,
-      height: mediaInfoMetadata.height ?? browserMetadata.height,
       duration: mediaInfoMetadata.duration ?? browserMetadata.duration,
+      height: mediaInfoMetadata.height ?? browserMetadata.height,
+      width: mediaInfoMetadata.width ?? browserMetadata.width,
     });
   } catch {
     return browserMetadata;
@@ -475,34 +535,34 @@ export async function analyzeMedia(
     throw new TypeError("analyzeMedia 需要传入 File 或 Blob");
   }
 
-  options.onProgress?.({ stage: "md5", percent: 0 });
+  options.onProgress?.({ percent: 0, stage: "md5" });
   const md5 = await hashBlob(file, ({ percent }) =>
-    options.onProgress?.({ stage: "md5", percent })
+    options.onProgress?.({ percent, stage: "md5" })
   );
   const result: MediaAnalysisResult = {
-    schema_version: MEDIA_ANALYSIS_SCHEMA_VERSION,
     basic: {
-      name: file.name ?? "",
-      type: file.type || "application/octet-stream",
       extension: getExtension(file.name ?? ""),
-      size: file.size,
       md5,
+      name: file.name ?? "",
+      size: file.size,
+      type: file.type || "application/octet-stream",
     },
+    schema_version: MEDIA_ANALYSIS_SCHEMA_VERSION,
   };
 
   if (isImageFile(file)) {
-    options.onProgress?.({ stage: "decode", percent: 0 });
+    options.onProgress?.({ percent: 0, stage: "decode" });
     const image = await analyzeImage(file, options);
     result.basic.width = image.width;
     result.basic.height = image.height;
     result.image = image.image;
-    options.onProgress?.({ stage: "analyze", percent: 100 });
+    options.onProgress?.({ percent: 100, stage: "analyze" });
   } else if (isVideoFile(file)) {
     const video = await analyzeVideo(file, options.includeRawExif ?? false);
     result.basic.width = video.video.width;
     result.basic.height = video.video.height;
     result.video = video.video;
-    options.onProgress?.({ stage: "analyze", percent: 100 });
+    options.onProgress?.({ percent: 100, stage: "analyze" });
   }
 
   return result;

@@ -2,13 +2,13 @@
   "name": "@life-palette/media",
   "version": "0.2.0",
   "description": "Browser-side media analysis: blurhash, arthash, dominant colors, EXIF, video technical metadata. Runs in any modern browser.",
+  "homepage": "https://github.com/Life-Palette/packages/tree/main/packages/media#readme",
+  "bugs": "https://github.com/Life-Palette/packages/issues",
   "repository": {
     "type": "git",
     "url": "https://github.com/Life-Palette/packages",
     "directory": "packages/media"
   },
-  "homepage": "https://github.com/Life-Palette/packages/tree/main/packages/media#readme",
-  "bugs": "https://github.com/Life-Palette/packages/issues",
   "license": "MIT",
   "sideEffects": false,
   "type": "module",
@@ -29,15 +29,14 @@
   "scripts": {
     "build": "tsdown",
     "dev": "vitest dev",
+    "prepublishOnly": "pnpm build && publint --strict && attw --pack .",
     "test": "vitest run",
-    "test:browser": "vitest run --browser.headless",
-    "prepublishOnly": "pnpm build && publint --strict && attw --pack ."
+    "test:browser": "vitest run --browser.headless"
   },
   "dependencies": {
     "arthash": "^0.5.0",
     "blurhash": "^2.0.5",
-    "exifr": "^7.1.3",
-    "mediainfo.js": "^0.3.7",
+    "metaprobe": "^0.0.1",
     "spark-md5": "^3.0.2"
   },
   "devDependencies": {

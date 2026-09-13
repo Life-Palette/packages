@@ -1,7 +1,7 @@
 <script setup lang="ts">
-import { computed, onBeforeUnmount, ref } from "vue";
 import { analyzeMedia, type MediaAnalysisResult } from "@life-palette/media";
 import { createOssUploader, type OSSFile } from "@life-palette/uploader";
+import { computed, onBeforeUnmount, ref } from "vue";
 
 const fileInput = ref<HTMLInputElement | null>(null);
 const selectedFile = ref<File | null>(null);
@@ -30,8 +30,12 @@ const isVideo = computed(
 );
 const fileSize = computed(() => {
   const size = selectedFile.value?.size ?? 0;
-  if (size < 1024) return `${size} B`;
-  if (size < 1024 * 1024) return `${(size / 1024).toFixed(1)} KB`;
+  if (size < 1024) {
+    return `${size} B`;
+  }
+  if (size < 1024 * 1024) {
+    return `${(size / 1024).toFixed(1)} KB`;
+  }
   return `${(size / 1024 / 1024).toFixed(2)} MB`;
 });
 const prettyJson = computed(() =>
@@ -42,12 +46,16 @@ const objectSize = (value: unknown) =>
 
 const openPicker = () => fileInput.value?.click();
 const clearPreview = () => {
-  if (previewUrl.value) URL.revokeObjectURL(previewUrl.value);
+  if (previewUrl.value) {
+    URL.revokeObjectURL(previewUrl.value);
+  }
   previewUrl.value = "";
 };
 const setFiles = (files: File[]) => {
   const file = files[0];
-  if (!file) return;
+  if (!file) {
+    return;
+  }
   errorMessage.value = "";
   analysis.value = null;
   progress.value = 0;
@@ -67,14 +75,16 @@ const handleDrop = (event: DragEvent) => {
   setFiles(Array.from(event.dataTransfer?.files ?? []));
 };
 const runAnalysis = async () => {
-  if (!selectedFile.value || isAnalyzing.value) return;
+  if (!selectedFile.value || isAnalyzing.value) {
+    return;
+  }
   isAnalyzing.value = true;
   errorMessage.value = "";
   analysis.value = null;
   try {
     analysis.value = await analyzeMedia(selectedFile.value, {
-      includeRawExif: true,
       colorCount: 5,
+      includeRawExif: true,
       onProgress: ({ stage, percent }) => {
         activeStage.value = stage;
         progress.value = percent;
@@ -96,7 +106,9 @@ const runUpload = async () => {
     : selectedFile.value
       ? [selectedFile.value]
       : [];
-  if (files.length === 0 || isUploading.value) return;
+  if (files.length === 0 || isUploading.value) {
+    return;
+  }
   isUploading.value = true;
   uploadProgress.value = 0;
   uploadStage.value = "分析文件";
@@ -111,8 +123,8 @@ const runUpload = async () => {
     });
     if (files.length === 1) {
       const currentAnalysis = await analyzeMedia(files[0], {
-        includeRawExif: true,
         colorCount: 5,
+        includeRawExif: true,
         onProgress: ({ stage, percent }) => {
           uploadProgress.value = percent;
           uploadStage.value = `分析：${stage}`;
@@ -122,17 +134,17 @@ const runUpload = async () => {
       uploadResult.value = [
         await uploader.upload(files[0], {
           isPrivate: isPrivate.value,
-          precomputedAnalysis: currentAnalysis,
           onProgress: ({ stage, percent }) => {
             uploadStage.value = stage;
             uploadProgress.value = percent;
           },
+          precomputedAnalysis: currentAnalysis,
         }),
       ];
     } else {
       uploadResult.value = await uploader.uploadBatch(files, {
+        analysis: { colorCount: 5, includeRawExif: true },
         isPrivate: isPrivate.value,
-        analysis: { includeRawExif: true, colorCount: 5 },
         onProgress: ({ stage, percent }) => {
           uploadStage.value = stage;
           uploadProgress.value = percent;
@@ -208,7 +220,7 @@ onBeforeUnmount(clearPreview);
         <span>设为私有文件</span>
       </label>
       <div class="upload-action">
-        <button class="btn btn-primary" type="button" :disabled="isUploading || !authToken" @click="runUpload">
+        <button class="btn btn-primary" type="button" :disabled="isUploading" @click="runUpload">
           {{ isUploading ? "处理中 " + uploadProgress + "%" : "上传" }}
         </button>
         <span class="stage-text">{{ uploadStage || "等待上传" }}</span>
