@@ -281,7 +281,7 @@ export function createOssUploader(config: UploaderConfig) {
     });
   }
 
-  // --- 单片上传（带 Content-Type + 重试） ---
+  // --- 单片上传（使用预签名 URL + 重试） ---
 
   async function uploadPart(part: {
     partNumber: number;
@@ -289,14 +289,17 @@ export function createOssUploader(config: UploaderConfig) {
     blob: Blob;
   }): Promise<CompletePart> {
     return withRetry(async () => {
+      // 清空 Blob 类型，避免浏览器根据原文件 MIME 自动附加 Content-Type，
+      // 触发 OSS 预签名分片请求的 CORS/签名校验。
+      const body = new Blob([part.blob], { type: "" });
       const res = await fetch(part.url, {
-        body: part.blob,
-        headers: { "Content-Type": "application/octet-stream" },
+        body,
         method: "PUT",
       });
       if (!res.ok) {
+        const detail = await res.text().catch(() => "");
         throw new Error(
-          `Failed to upload part ${part.partNumber}: ${res.status}`
+          `Failed to upload part ${part.partNumber}: ${res.status}${detail ? ` - ${detail}` : ""}`
         );
       }
       const etag = res.headers.get("ETag") || "";
@@ -338,7 +341,7 @@ export function createOssUploader(config: UploaderConfig) {
       (n) => !doneSet.has(n)
     );
 
-    const parts: CompletePart[] = [...existingParts];
+    const parts: CompletePart[] = [...(existingParts ?? [])];
     let uploaded = 0;
 
     if (pending.length > 0) {
@@ -392,9 +395,13 @@ export function createOssUploader(config: UploaderConfig) {
     const { compress: shouldCompress = false, maxSizeMB, onProgress } = options;
     let processed = file;
 
-    if (shouldCompress && file.type.startsWith("image/")) {
+      if (shouldCompress && file.type.startsWith("image/")) {
       onProgress?.({ percent: 0, stage: "compress" });
-      processed = await compress(file, maxSizeMB);
+        processed = await compress(file, maxSizeMB);
+        // 某些浏览器/图片组合可能返回空压缩结果，不能继续向后端提交 file_size=0。
+        if (processed.size === 0) {
+          processed = file;
+        }
       onProgress?.({ percent: 100, stage: "compress" });
     }
 
