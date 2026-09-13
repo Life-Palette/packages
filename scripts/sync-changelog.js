@@ -1,5 +1,5 @@
 #!/usr/bin/env node
-import { existsSync, readFileSync, writeFileSync } from "node:fs";
+import { existsSync, mkdirSync, readFileSync, writeFileSync } from "node:fs";
 import { resolve } from "node:path";
 
 const rootDir = resolve(process.cwd());
@@ -16,6 +16,7 @@ try {
     process.exit(0);
   }
   const changelog = readFileSync(source, "utf8");
+  mkdirSync(resolve(rootDir, "docs"), { recursive: true });
   writeFileSync(docsChangelogPath, changelog);
   console.log("✅ Changelog synced to docs successfully!");
 } catch {

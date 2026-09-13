@@ -1,97 +1,111 @@
 <script lang="ts" setup>
-import { computed, ref } from 'vue'
 import {
-  PromisePool,
-  withRetry,
-  fileParse,
-  getVideoThumbnailUrl,
-  generateOssImageParams,
-  parseFileName,
   detectLivePhotoPairs,
-} from '@life-palette/uploader'
+  fileParse,
+  generateOssImageParams,
+  getVideoThumbnailUrl,
+  PromisePool,
+  parseFileName,
+  withRetry,
+} from "@life-palette/uploader";
+import { computed, ref } from "vue";
 
 // ---------- PromisePool 并发演示 ----------
 interface Task {
-  id: number
-  status: 'waiting' | 'running' | 'done'
+  id: number;
+  status: "waiting" | "running" | "done";
 }
-const limit = ref(4)
-const taskCount = ref(12)
-const tasks = ref<Task[]>([])
-const running = ref(false)
-const poolLog = ref<string[]>([])
+const limit = ref(4);
+const taskCount = ref(12);
+const tasks = ref<Task[]>([]);
+const running = ref(false);
+const poolLog = ref<string[]>([]);
 
 async function runPool() {
-  running.value = true
-  poolLog.value = []
+  running.value = true;
+  poolLog.value = [];
   tasks.value = Array.from({ length: taskCount.value }, (_, i) => ({
     id: i + 1,
-    status: 'waiting',
-  }))
-  const pool = new PromisePool(limit.value)
-  const t0 = performance.now()
+    status: "waiting",
+  }));
+  const pool = new PromisePool(limit.value);
+  const t0 = performance.now();
   await Promise.all(
     tasks.value.map((t) =>
       pool.run(async () => {
-        t.status = 'running'
-        poolLog.value.push(`#${t.id} start  +${Math.round(performance.now() - t0)}ms`)
-        await new Promise((r) => setTimeout(r, 800 + Math.random() * 800))
-        t.status = 'done'
-        poolLog.value.push(`#${t.id} done   +${Math.round(performance.now() - t0)}ms`)
-      }),
-    ),
-  )
-  poolLog.value.push(`全部完成，并发上限 ${limit.value}，总耗时 ${Math.round(performance.now() - t0)}ms`)
-  running.value = false
+        t.status = "running";
+        poolLog.value.push(
+          `#${t.id} start  +${Math.round(performance.now() - t0)}ms`
+        );
+        await new Promise((r) => setTimeout(r, 800 + Math.random() * 800));
+        t.status = "done";
+        poolLog.value.push(
+          `#${t.id} done   +${Math.round(performance.now() - t0)}ms`
+        );
+      })
+    )
+  );
+  poolLog.value.push(
+    `全部完成，并发上限 ${limit.value}，总耗时 ${Math.round(performance.now() - t0)}ms`
+  );
+  running.value = false;
 }
 
 // ---------- withRetry 演示 ----------
-const retryLog = ref<string[]>([])
-const retrying = ref(false)
+const retryLog = ref<string[]>([]);
+const retrying = ref(false);
 async function runRetry() {
-  retrying.value = true
-  retryLog.value = []
-  let attempt = 0
+  retrying.value = true;
+  retryLog.value = [];
+  let attempt = 0;
   try {
     await withRetry(
       async () => {
-        attempt += 1
-        retryLog.value.push(`第 ${attempt} 次尝试…`)
-        if (attempt < 3) throw new Error(`模拟网络错误（第 ${attempt} 次）`)
-        return 'ok'
+        attempt += 1;
+        retryLog.value.push(`第 ${attempt} 次尝试…`);
+        if (attempt < 3) {
+          throw new Error(`模拟网络错误（第 ${attempt} 次）`);
+        }
+        return "ok";
       },
       5,
-      400,
-    )
-    retryLog.value.push('第 3 次成功 ✓（指数退避 400ms → 800ms）')
+      400
+    );
+    retryLog.value.push("第 3 次成功 ✓（指数退避 400ms → 800ms）");
   } finally {
-    retrying.value = false
+    retrying.value = false;
   }
 }
 
 // ---------- fileParse / URL 工具演示 ----------
-const ossUrl = ref('https://life-palette.oss-cn-hangzhou.aliyuncs.com/uploads/2026/09/photo.heic')
+const ossUrl = ref(
+  "https://life-palette.oss-cn-hangzhou.aliyuncs.com/uploads/2026/09/photo.heic"
+);
 const fileParseDemo = computed(() =>
-  JSON.stringify(fileParse({ url: ossUrl.value, type: 'IMAGE' }), null, 2),
-)
-const videoUrl = ref('https://life-palette.oss-cn-hangzhou.aliyuncs.com/uploads/2026/09/clip.mp4')
-const videoThumbDemo = computed(() => getVideoThumbnailUrl(videoUrl.value))
-const ossParamsDemo = computed(() => generateOssImageParams(4032, 3024, 800))
-const fileNameInput = ref('IMG_2048.MOV')
-const fileNameDemo = computed(() => JSON.stringify(parseFileName(fileNameInput.value)))
+  JSON.stringify(fileParse({ type: "IMAGE", url: ossUrl.value }), null, 2)
+);
+const videoUrl = ref(
+  "https://life-palette.oss-cn-hangzhou.aliyuncs.com/uploads/2026/09/clip.mp4"
+);
+const videoThumbDemo = computed(() => getVideoThumbnailUrl(videoUrl.value));
+const ossParamsDemo = computed(() => generateOssImageParams(4032, 3024, 800));
+const fileNameInput = ref("IMG_2048.MOV");
+const fileNameDemo = computed(() =>
+  JSON.stringify(parseFileName(fileNameInput.value))
+);
 
 // ---------- 实况照片配对 ----------
 const livePhotoDemo = computed(() =>
   JSON.stringify(
     detectLivePhotoPairs([
-      { name: 'IMG_0001.HEIC', type: 'image/heic' },
-      { name: 'IMG_0001.MOV', type: 'video/quicktime' },
-      { name: 'IMG_0002.JPG', type: 'image/jpeg' },
+      { name: "IMG_0001.HEIC", type: "image/heic" },
+      { name: "IMG_0001.MOV", type: "video/quicktime" },
+      { name: "IMG_0002.JPG", type: "image/jpeg" },
     ]),
     null,
-    2,
-  ),
-)
+    2
+  )
+);
 </script>
 
 <template>

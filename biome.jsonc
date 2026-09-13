@@ -3,14 +3,24 @@
   "extends": ["ultracite/biome/core"],
   "linter": {
     "rules": {
-      "performance": {
-        "noBarrelFile": "off"
-      },
       "style": {
-        "useFilenamingConvention": "off"
+        "useFilenamingConvention": "off",
+        "noNestedTernary": "off",
+        "noIncrementDecrement": "off",
+        "useDestructuring": "off",
+        "useConsistentTypeDefinitions": "off",
+        "useConsistentArrayType": "off",
+        "noParameterProperties": "off"
+      },
+      "performance": {
+        "noBarrelFile": "off",
+        "noAwaitInLoops": "off",
+        "useTopLevelRegex": "off"
       },
       "suspicious": {
-        "noExplicitAny": "warn"
+        "noExplicitAny": "warn",
+        "noUnnecessaryConditions": "off",
+        "useAwait": "off"
       },
       "correctness": {
         "noUnusedVariables": "off",

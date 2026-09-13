@@ -2,13 +2,13 @@
   "name": "@life-palette/utils",
   "version": "0.2.0",
   "description": "Pure-function toolkit: async helpers, date format, url parse, pagination, markdown strip, browser helpers. Zero dependencies.",
+  "homepage": "https://github.com/Life-Palette/packages/tree/main/packages/utils#readme",
+  "bugs": "https://github.com/Life-Palette/packages/issues",
   "repository": {
     "type": "git",
     "url": "https://github.com/Life-Palette/packages",
     "directory": "packages/utils"
   },
-  "homepage": "https://github.com/Life-Palette/packages/tree/main/packages/utils#readme",
-  "bugs": "https://github.com/Life-Palette/packages/issues",
   "license": "MIT",
   "sideEffects": false,
   "type": "module",
@@ -29,9 +29,9 @@
   "scripts": {
     "build": "tsdown",
     "dev": "vitest dev",
+    "prepublishOnly": "pnpm build && publint --strict && attw --pack .",
     "test": "vitest run",
-    "test:browser": "vitest run --browser.headless",
-    "prepublishOnly": "pnpm build && publint --strict && attw --pack ."
+    "test:browser": "vitest run --browser.headless"
   },
   "devDependencies": {
     "@vitest/browser": "^5.0.0",

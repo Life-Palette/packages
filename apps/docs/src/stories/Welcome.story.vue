@@ -1,21 +1,21 @@
 <script lang="ts" setup>
 const packages = [
   {
-    name: '@life-palette/utils',
-    desc: '纯函数工具集：async / date / url / pagination / markdown / browser，零运行时依赖',
-    deps: '0 dependencies',
+    deps: "0 dependencies",
+    desc: "纯函数工具集：async / date / url / pagination / markdown / browser，零运行时依赖",
+    name: "@life-palette/utils",
   },
   {
-    name: '@life-palette/media',
-    desc: '媒体文件分析：MD5（hash-wasm）、图片 EXIF / 主色 / BlurHash / ArtHash、视频 metadata（mediainfo.js）',
-    deps: 'exifr · blurhash · arthash · mediainfo.js · hash-wasm',
+    deps: "exifr · blurhash · arthash · mediainfo.js · hash-wasm",
+    desc: "媒体文件分析：MD5（hash-wasm）、图片 EXIF / 主色 / BlurHash / ArtHash、视频 metadata（mediainfo.js）",
+    name: "@life-palette/media",
   },
   {
-    name: '@life-palette/uploader',
-    desc: 'OSS 上传：并发分片、单片重试、断点续传 etags、批量并发、实况照片配对、URL 工具',
-    deps: '@life-palette/media · browser-image-compression (optional peer)',
+    deps: "@life-palette/media · browser-image-compression (optional peer)",
+    desc: "OSS 上传：并发分片、单片重试、断点续传 etags、批量并发、实况照片配对、URL 工具",
+    name: "@life-palette/uploader",
   },
-]
+];
 </script>
 
 <template>

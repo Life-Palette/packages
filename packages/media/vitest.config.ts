@@ -7,10 +7,10 @@ export default defineConfig({
         // Node-environment tests: pure functions only.
         extends: true,
         test: {
-          name: "node",
-          include: ["test/**/*.test.ts"],
-          exclude: ["test/**/*.browser.test.ts"],
           environment: "node",
+          exclude: ["test/**/*.browser.test.ts"],
+          include: ["test/**/*.test.ts"],
+          name: "node",
         },
       },
     ],

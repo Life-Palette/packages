@@ -1,39 +1,46 @@
 <script lang="ts" setup>
-import { ref } from 'vue'
-import { analyzeMedia, type MediaAnalysisResult } from '@life-palette/media'
-import { selectFile } from '@life-palette/utils'
+import { analyzeMedia, type MediaAnalysisResult } from "@life-palette/media";
+import { selectFile } from "@life-palette/utils";
+import { ref } from "vue";
 
-const analyzing = ref(false)
-const stage = ref('')
-const percent = ref(0)
-const result = ref<MediaAnalysisResult | null>(null)
-const previewUrl = ref('')
-const error = ref('')
+const analyzing = ref(false);
+const stage = ref("");
+const percent = ref(0);
+const result = ref<MediaAnalysisResult | null>(null);
+const previewUrl = ref("");
+const error = ref("");
 
 async function pick() {
-  error.value = ''
-  result.value = null
-  const files = await selectFile({ accept: 'image/*,video/*', multiple: false })
-  const file = files?.[0]
-  if (!file) return
+  error.value = "";
+  result.value = null;
+  const files = await selectFile({
+    accept: "image/*,video/*",
+    multiple: false,
+  });
+  const file = files?.[0];
+  if (!file) {
+    return;
+  }
 
-  if (previewUrl.value) URL.revokeObjectURL(previewUrl.value)
-  previewUrl.value = URL.createObjectURL(file)
+  if (previewUrl.value) {
+    URL.revokeObjectURL(previewUrl.value);
+  }
+  previewUrl.value = URL.createObjectURL(file);
 
-  analyzing.value = true
-  stage.value = 'md5'
-  percent.value = 0
+  analyzing.value = true;
+  stage.value = "md5";
+  percent.value = 0;
   try {
     result.value = await analyzeMedia(file, {
       onProgress: (p) => {
-        stage.value = p.stage
-        percent.value = Math.round(p.percent)
+        stage.value = p.stage;
+        percent.value = Math.round(p.percent);
       },
-    })
+    });
   } catch (e) {
-    error.value = e instanceof Error ? e.message : String(e)
+    error.value = e instanceof Error ? e.message : String(e);
   } finally {
-    analyzing.value = false
+    analyzing.value = false;
   }
 }
 </script>

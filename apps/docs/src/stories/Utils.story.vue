@@ -1,49 +1,53 @@
 <script lang="ts" setup>
-import { computed, ref } from 'vue'
 import {
   formatRelativeTime,
-  parseUrl,
   getPageNumbers,
-  stripMarkdown,
+  parseUrl,
   sleep,
-} from '@life-palette/utils'
+  stripMarkdown,
+} from "@life-palette/utils";
+import { computed, ref } from "vue";
 
 // --- date ---
-const minutesAgo = ref(5)
+const minutesAgo = ref(5);
 const relativeDemo = computed(() =>
-  formatRelativeTime(new Date(Date.now() - minutesAgo.value * 60_000).toISOString()),
-)
+  formatRelativeTime(
+    new Date(Date.now() - minutesAgo.value * 60_000).toISOString()
+  )
+);
 
 // --- url ---
-const urlInput = ref('/album/detail?id=42&tag=旅行&tag=2026#comments')
+const urlInput = ref("/album/detail?id=42&tag=旅行&tag=2026#comments");
 const urlDemo = computed(() => {
   try {
-    return JSON.stringify(parseUrl(urlInput.value), null, 2)
+    return JSON.stringify(parseUrl(urlInput.value), null, 2);
   } catch (e) {
-    return String(e)
+    return String(e);
   }
-})
+});
 
 // --- pagination ---
-const currentPage = ref(5)
-const totalPages = ref(12)
+const currentPage = ref(5);
+const totalPages = ref(12);
 const pageDemo = computed(() =>
-  JSON.stringify(getPageNumbers(currentPage.value, totalPages.value)),
-)
+  JSON.stringify(getPageNumbers(currentPage.value, totalPages.value))
+);
 
 // --- markdown ---
-const mdInput = ref('# 标题\n\n这是 **加粗** 和 [链接](https://example.com) 以及 `代码`。')
-const mdDemo = computed(() => stripMarkdown(mdInput.value))
+const mdInput = ref(
+  "# 标题\n\n这是 **加粗** 和 [链接](https://example.com) 以及 `代码`。"
+);
+const mdDemo = computed(() => stripMarkdown(mdInput.value));
 
 // --- async ---
-const sleepLog = ref<string[]>([])
-const sleeping = ref(false)
+const sleepLog = ref<string[]>([]);
+const sleeping = ref(false);
 async function runSleep() {
-  sleeping.value = true
-  sleepLog.value = [`start  ${new Date().toLocaleTimeString()}`]
-  await sleep(1000)
-  sleepLog.value.push(`+1s    ${new Date().toLocaleTimeString()}`)
-  sleeping.value = false
+  sleeping.value = true;
+  sleepLog.value = [`start  ${new Date().toLocaleTimeString()}`];
+  await sleep(1000);
+  sleepLog.value.push(`+1s    ${new Date().toLocaleTimeString()}`);
+  sleeping.value = false;
 }
 </script>
 

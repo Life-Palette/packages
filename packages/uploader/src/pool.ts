@@ -14,10 +14,12 @@ export class PromisePool {
     return new Promise<T>((resolve, reject) => {
       const execute = () => {
         this.active += 1;
-        task().then(resolve, reject).finally(() => {
-          this.active -= 1;
-          this.next();
-        });
+        task()
+          .then(resolve, reject)
+          .finally(() => {
+            this.active -= 1;
+            this.next();
+          });
       };
       this.queue.push(execute);
       this.next();

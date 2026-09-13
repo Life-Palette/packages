@@ -9,8 +9,8 @@ const CHUNK_SIZE = 2 * 1024 * 1024;
 
 export interface HashProgress {
   loaded: number;
-  total: number;
   percent: number;
+  total: number;
 }
 
 /**
@@ -35,7 +35,11 @@ export async function hashBlob(
       .slice(start, Math.min(start + CHUNK_SIZE, blob.size))
       .arrayBuffer();
     hash.append(buffer);
-    onProgress?.({ loaded: index + 1, total, percent: Math.round(((index + 1) / total) * 100) });
+    onProgress?.({
+      loaded: index + 1,
+      percent: Math.round(((index + 1) / total) * 100),
+      total,
+    });
   }
 
   return hash.end();

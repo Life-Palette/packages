@@ -96,10 +96,10 @@ export function fileParse(
 
   return {
     ...data,
-    fileType,
     baseSrc,
-    thumbnailUrl,
     cover,
+    fileType,
+    thumbnailUrl,
     videoSrc,
   } as FileParseResult;
 }
@@ -140,7 +140,9 @@ export function generateOssImageParams(
   if (!(originalWidth && originalHeight)) {
     return `?x-oss-process=image/resize,w_${targetWidth},m_lfit/quality,q_${quality}/format,webp`;
   }
-  const targetHeight = Math.round((originalHeight / originalWidth) * targetWidth);
+  const targetHeight = Math.round(
+    (originalHeight / originalWidth) * targetWidth
+  );
   return `?x-oss-process=image/resize,w_${targetWidth},h_${targetHeight},m_lfit/quality,q_${quality}/format,webp`;
 }
 

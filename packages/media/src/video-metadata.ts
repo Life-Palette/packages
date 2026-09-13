@@ -25,18 +25,18 @@ export interface VideoTechnicalMetadata {
   metadata?: Record<string, unknown>;
   width?: number;
 }
-type Meta = {
-  width?: number;
-  height?: number;
-  duration?: number;
+interface Meta {
   codec?: string;
-  frameRate?: number;
-  overallBitrate?: number;
-  creationTime?: string;
   containerCreationTime?: string;
+  creationTime?: string;
+  duration?: number;
   exif?: Record<string, unknown>;
+  frameRate?: number;
+  height?: number;
   metadata?: Record<string, unknown>;
-};
+  overallBitrate?: number;
+  width?: number;
+}
 const num = (v: unknown) => {
   const n = typeof v === "number" ? v : Number(v);
   return Number.isFinite(n) ? n : undefined;
@@ -59,7 +59,7 @@ const clean = <T extends object>(v: T) =>
 
 /** Compatibility mapper for callers that still provide the old MediaInfo shape. */
 export function mapMediaInfoResult(input: {
-  media?: { track?: Array<Record<string, unknown>> };
+  media?: { track?: Record<string, unknown>[] };
 }): VideoTechnicalMetadata {
   const tracks = input.media?.track ?? [];
   if (!tracks.length) {

@@ -12,8 +12,8 @@ import {
 describe("fileParse", () => {
   it("parses image file with default options", () => {
     const data = {
-      url: "https://cdn.example.com/photo.jpg",
       type: "image/jpeg",
+      url: "https://cdn.example.com/photo.jpg",
     };
     const result = fileParse(data);
     expect(result.fileType).toBe("IMAGE");
@@ -25,9 +25,9 @@ describe("fileParse", () => {
 
   it("parses heic file and converts format", () => {
     const data = {
-      url: "https://cdn.example.com/photo.heic",
-      type: "image/heic",
       extension: ".heic",
+      type: "image/heic",
+      url: "https://cdn.example.com/photo.heic",
     };
     const result = fileParse(data);
     expect(result.baseSrc).toContain("format,jpg");
@@ -36,8 +36,8 @@ describe("fileParse", () => {
 
   it("parses video file", () => {
     const data = {
-      url: "https://cdn.example.com/video.mp4",
       type: "video/mp4",
+      url: "https://cdn.example.com/video.mp4",
     };
     const result = fileParse(data);
     expect(result.fileType).toBe("VIDEO");
@@ -46,9 +46,9 @@ describe("fileParse", () => {
 
   it("uses provided cover for video", () => {
     const data = {
-      url: "https://cdn.example.com/video.mp4",
-      type: "video/mp4",
       cover: "https://cdn.example.com/custom-cover.jpg",
+      type: "video/mp4",
+      url: "https://cdn.example.com/video.mp4",
     };
     const result = fileParse(data);
     expect(result.cover).toBe("https://cdn.example.com/custom-cover.jpg");
@@ -56,9 +56,9 @@ describe("fileParse", () => {
 
   it("respects custom format option", () => {
     const data = {
-      url: "https://cdn.example.com/photo.heic",
-      type: "image/heic",
       extension: ".heic",
+      type: "image/heic",
+      url: "https://cdn.example.com/photo.heic",
     };
     const result = fileParse(data, { format: "webp" });
     expect(result.baseSrc).toContain("format,webp");
