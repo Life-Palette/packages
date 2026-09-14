@@ -1,6 +1,6 @@
 {
   "name": "@life-palette/uploader",
-  "version": "0.2.1",
+  "version": "0.2.2",
   "description": "OSS uploader for Life Palette: compress → analyze → multipart upload (concurrent, retryable) → complete. Browser-only, framework-agnostic.",
   "homepage": "https://github.com/Life-Palette/packages/tree/main/packages/uploader#readme",
   "bugs": "https://github.com/Life-Palette/packages/issues",
