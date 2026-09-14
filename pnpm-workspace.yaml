@@ -5,6 +5,9 @@ nodeLinker: isolated
 verifyDepsBeforeRun: false
 allowBuilds:
   esbuild: true
+  onnxruntime-node: true
+  protobufjs: true
+  sharp: true
 minimumReleaseAgeExclude:
   - '@biomejs/biome@2.5.13'
   - '@biomejs/cli-darwin-arm64@2.5.13'
