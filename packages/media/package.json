@@ -1,6 +1,6 @@
 {
   "name": "@life-palette/media",
-  "version": "0.2.1",
+  "version": "0.2.2",
   "description": "Browser-side media analysis: blurhash, arthash, dominant colors, EXIF, video technical metadata. Runs in any modern browser.",
   "homepage": "https://github.com/Life-Palette/packages/tree/main/packages/media#readme",
   "bugs": "https://github.com/Life-Palette/packages/issues",
