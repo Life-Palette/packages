@@ -2,7 +2,7 @@ import { fileURLToPath } from "node:url";
 import { defineConfig } from "vitest/config";
 
 const metaprobeWasmPath = fileURLToPath(
-  new URL("../../node_modules/metaprobe/wasm/index.js", import.meta.url)
+  new URL("./node_modules/metaprobe/wasm/index.js", import.meta.url)
 );
 
 export default defineConfig({

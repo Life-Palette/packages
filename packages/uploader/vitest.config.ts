@@ -1,14 +1,18 @@
+import { fileURLToPath } from "node:url";
 import { defineConfig } from "vitest/config";
 
 export default defineConfig({
   resolve: {
     alias: {
-      "@life-palette/media": new URL("../media/src/index.ts", import.meta.url)
-        .pathname,
-      metaprobe: new URL(
-        "../../node_modules/metaprobe/wasm/index.js",
-        import.meta.url
-      ).pathname,
+      "@life-palette/media": fileURLToPath(
+        new URL("../media/src/index.ts", import.meta.url)
+      ),
+      metaprobe: fileURLToPath(
+        new URL(
+          "../media/node_modules/metaprobe/wasm/index.js",
+          import.meta.url
+        )
+      ),
     },
   },
   test: {
