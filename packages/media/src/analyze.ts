@@ -162,7 +162,9 @@ function get2DContext(
   if (!context) {
     throw new Error("无法创建 Canvas 2D 上下文");
   }
-  return context;
+  return context as
+    | CanvasRenderingContext2D
+    | OffscreenCanvasRenderingContext2D;
 }
 
 async function decodeImage(

@@ -1,6 +1,11 @@
 <script setup lang="ts">
+import {
+  type DepthEstimationPipeline,
+  env,
+  pipeline,
+  RawImage,
+} from "@huggingface/transformers";
 import { computed, onBeforeUnmount, ref } from "vue";
-import { env, pipeline, RawImage, type DepthEstimationPipeline } from "@huggingface/transformers";
 import LioraDepthMapViewer from "./LioraDepthMapViewer.vue";
 
 const input = ref<HTMLInputElement | null>(null);
@@ -14,7 +19,7 @@ const progress = ref(0);
 const isRunning = ref(false);
 const isRendering = ref(false);
 const canvas = ref<HTMLCanvasElement | null>(null);
-const depthSize = ref({ width: 0, height: 0 });
+const depthSize = ref({ height: 0, width: 0 });
 const depthBlob = ref<Blob | null>(null);
 const viewerRef = ref<{ play: () => void } | null>(null);
 let estimator: DepthEstimationPipeline | null = null;
@@ -23,33 +28,43 @@ let sourceUrl = "";
 
 const openPicker = () => input.value?.click();
 const depthSizeText = computed(() =>
-  depthSize.value.width ? `${depthSize.value.width} × ${depthSize.value.height}` : "—",
+  depthSize.value.width
+    ? `${depthSize.value.width} × ${depthSize.value.height}`
+    : "—"
 );
 const depthData = computed(() => {
-  if (!depthBlob.value) return null;
+  if (!depthBlob.value) {
+    return null;
+  }
   return {
+    bytes: depthBlob.value.size,
+    channels: 4,
+    format: depthBlob.value.type || "image/png",
+    height: depthSize.value.height,
     model: MODEL_ID,
     modelSource: `本地模型 ${LOCAL_MODEL_PATH}${MODEL_ID}/`,
-    width: depthSize.value.width,
-    height: depthSize.value.height,
-    format: depthBlob.value.type || "image/png",
-    bytes: depthBlob.value.size,
     pixels: depthSize.value.width * depthSize.value.height,
-    channels: 4,
     storage: "Blob URL（浏览器内存）",
     uploadedToOss: false,
+    width: depthSize.value.width,
   };
 });
 
 function clearUrls() {
-  if (sourceUrl) URL.revokeObjectURL(sourceUrl);
-  if (imageUrl.value) URL.revokeObjectURL(imageUrl.value);
-  if (depthUrl.value) URL.revokeObjectURL(depthUrl.value);
+  if (sourceUrl) {
+    URL.revokeObjectURL(sourceUrl);
+  }
+  if (imageUrl.value) {
+    URL.revokeObjectURL(imageUrl.value);
+  }
+  if (depthUrl.value) {
+    URL.revokeObjectURL(depthUrl.value);
+  }
   sourceUrl = "";
   imageUrl.value = "";
   depthUrl.value = "";
   depthBlob.value = null;
-  depthSize.value = { width: 0, height: 0 };
+  depthSize.value = { height: 0, width: 0 };
 }
 
 function loadImage(url: string): Promise<HTMLImageElement> {
@@ -62,7 +77,9 @@ function loadImage(url: string): Promise<HTMLImageElement> {
 }
 
 async function getEstimator() {
-  if (estimator) return estimator;
+  if (estimator) {
+    return estimator;
+  }
   env.allowRemoteModels = false;
   env.allowLocalModels = true;
   env.localModelPath = LOCAL_MODEL_PATH;
@@ -73,7 +90,9 @@ async function getEstimator() {
 }
 
 async function handleFile(file?: File) {
-  if (!file || !file.type.startsWith("image/") || isRunning.value) return;
+  if (!file?.type.startsWith("image/") || isRunning.value) {
+    return;
+  }
   cancelAnimationFrame(animationFrame);
   clearUrls();
   error.value = "";
@@ -93,11 +112,13 @@ async function handleFile(file?: File) {
     const depthEstimator = await getEstimator();
     const output = await depthEstimator(image);
     const depth = Array.isArray(output) ? output[0]?.depth : output.depth;
-    if (!depth) throw new Error("模型没有返回深度图");
-    const blob = await depth.toBlob("image/png") as Blob;
+    if (!depth) {
+      throw new Error("模型没有返回深度图");
+    }
+    const blob = (await depth.toBlob("image/png")) as Blob;
     depthBlob.value = blob;
     depthUrl.value = URL.createObjectURL(blob);
-    depthSize.value = { width: depth.width, height: depth.height };
+    depthSize.value = { height: depth.height, width: depth.width };
     progress.value = 70;
     status.value = "深度图已生成，正在播放过渡…";
     progress.value = 100;
@@ -111,10 +132,20 @@ async function handleFile(file?: File) {
 }
 
 async function rerender() {
-  if (!imageUrl.value || !depthUrl.value || isRunning.value || isRendering.value) return;
+  if (
+    !(imageUrl.value && depthUrl.value) ||
+    isRunning.value ||
+    isRendering.value
+  ) {
+    return;
+  }
   isRendering.value = true;
   status.value = "正在重新渲染过渡…";
-  viewerRef.value?.play();
+  if (viewerRef.value) {
+    viewerRef.value.play();
+  } else {
+    await playReveal(imageUrl.value, depthUrl.value);
+  }
   await new Promise((resolve) => setTimeout(resolve, 1800));
   status.value = "重新渲染完成：已使用 liora 深度渲染管线";
   isRendering.value = false;
@@ -122,17 +153,25 @@ async function rerender() {
 
 async function playReveal(source: string, depth: string) {
   const target = canvas.value;
-  if (!target) return;
-  const [image, depthImage] = await Promise.all([loadImage(source), loadImage(depth)]);
+  if (!target) {
+    return;
+  }
+  const [image, depthImage] = await Promise.all([
+    loadImage(source),
+    loadImage(depth),
+  ]);
   const width = target.clientWidth || 640;
-  const height = Math.round(width * image.naturalHeight / image.naturalWidth);
+  const height = Math.round((width * image.naturalHeight) / image.naturalWidth);
   const pixelRatio = Math.min(2, window.devicePixelRatio || 1);
   target.width = width * pixelRatio;
   target.height = height * pixelRatio;
   target.style.aspectRatio = `${image.naturalWidth} / ${image.naturalHeight}`;
   const gl = target.getContext("webgl", { alpha: false, antialias: true });
-  if (!gl) throw new Error("当前浏览器不支持 WebGL");
-  const vertexSource = `attribute vec2 position; varying vec2 uv; void main(){ uv=position*.5+.5; gl_Position=vec4(position,0.,1.); }`;
+  if (!gl) {
+    throw new Error("当前浏览器不支持 WebGL");
+  }
+  const vertexSource =
+    "attribute vec2 position; varying vec2 uv; void main(){ uv=position*.5+.5; gl_Position=vec4(position,0.,1.); }";
   const fragmentSource = `precision highp float;
     varying vec2 uv;
     uniform sampler2D imageTexture;
@@ -191,20 +230,33 @@ async function playReveal(source: string, depth: string) {
     }`;
   const compile = (type: number, sourceCode: string) => {
     const shader = gl.createShader(type);
-    if (!shader) throw new Error("WebGL shader 创建失败");
-    gl.shaderSource(shader, sourceCode); gl.compileShader(shader);
-    if (!gl.getShaderParameter(shader, gl.COMPILE_STATUS)) throw new Error(gl.getShaderInfoLog(shader) || "WebGL shader 编译失败");
+    if (!shader) {
+      throw new Error("WebGL shader 创建失败");
+    }
+    gl.shaderSource(shader, sourceCode);
+    gl.compileShader(shader);
+    if (!gl.getShaderParameter(shader, gl.COMPILE_STATUS)) {
+      throw new Error(gl.getShaderInfoLog(shader) || "WebGL shader 编译失败");
+    }
     return shader;
   };
   const program = gl.createProgram();
-  if (!program) throw new Error("WebGL program 创建失败");
+  if (!program) {
+    throw new Error("WebGL program 创建失败");
+  }
   gl.attachShader(program, compile(gl.VERTEX_SHADER, vertexSource));
   gl.attachShader(program, compile(gl.FRAGMENT_SHADER, fragmentSource));
   gl.linkProgram(program);
-  if (!gl.getProgramParameter(program, gl.LINK_STATUS)) throw new Error("WebGL program 链接失败");
+  if (!gl.getProgramParameter(program, gl.LINK_STATUS)) {
+    throw new Error("WebGL program 链接失败");
+  }
   const buffer = gl.createBuffer();
   gl.bindBuffer(gl.ARRAY_BUFFER, buffer);
-  gl.bufferData(gl.ARRAY_BUFFER, new Float32Array([-1,-1,1,-1,-1,1,1,1]), gl.STATIC_DRAW);
+  gl.bufferData(
+    gl.ARRAY_BUFFER,
+    new Float32Array([-1, -1, 1, -1, -1, 1, 1, 1]),
+    gl.STATIC_DRAW
+  );
   const createTexture = (sourceImage: HTMLImageElement) => {
     const texture = gl.createTexture();
     gl.bindTexture(gl.TEXTURE_2D, texture);
@@ -213,27 +265,43 @@ async function playReveal(source: string, depth: string) {
     gl.texParameteri(gl.TEXTURE_2D, gl.TEXTURE_MAG_FILTER, gl.LINEAR);
     gl.texParameteri(gl.TEXTURE_2D, gl.TEXTURE_WRAP_S, gl.CLAMP_TO_EDGE);
     gl.texParameteri(gl.TEXTURE_2D, gl.TEXTURE_WRAP_T, gl.CLAMP_TO_EDGE);
-    gl.texImage2D(gl.TEXTURE_2D, 0, gl.RGBA, gl.RGBA, gl.UNSIGNED_BYTE, sourceImage);
+    gl.texImage2D(
+      gl.TEXTURE_2D,
+      0,
+      gl.RGBA,
+      gl.RGBA,
+      gl.UNSIGNED_BYTE,
+      sourceImage
+    );
     return texture;
   };
   const imageTexture = createTexture(image);
   const depthTexture = createTexture(depthImage);
   gl.useProgram(program);
   const position = gl.getAttribLocation(program, "position");
-  gl.enableVertexAttribArray(position); gl.vertexAttribPointer(position, 2, gl.FLOAT, false, 0, 0);
+  gl.enableVertexAttribArray(position);
+  gl.vertexAttribPointer(position, 2, gl.FLOAT, false, 0, 0);
   gl.uniform1i(gl.getUniformLocation(program, "imageTexture"), 0);
   gl.uniform1i(gl.getUniformLocation(program, "depthTexture"), 1);
-  gl.uniform2f(gl.getUniformLocation(program, "texel"), 1 / image.naturalWidth, 1 / image.naturalHeight);
+  gl.uniform2f(
+    gl.getUniformLocation(program, "texel"),
+    1 / image.naturalWidth,
+    1 / image.naturalHeight
+  );
   const started = performance.now();
   const duration = 1800;
   const draw = (now: number) => {
     const progressValue = Math.min(1, (now - started) / duration);
     gl.viewport(0, 0, target.width, target.height);
-    gl.activeTexture(gl.TEXTURE0); gl.bindTexture(gl.TEXTURE_2D, imageTexture);
-    gl.activeTexture(gl.TEXTURE1); gl.bindTexture(gl.TEXTURE_2D, depthTexture);
+    gl.activeTexture(gl.TEXTURE0);
+    gl.bindTexture(gl.TEXTURE_2D, imageTexture);
+    gl.activeTexture(gl.TEXTURE1);
+    gl.bindTexture(gl.TEXTURE_2D, depthTexture);
     gl.uniform1f(gl.getUniformLocation(program, "progress"), progressValue);
     gl.drawArrays(gl.TRIANGLE_STRIP, 0, 4);
-    if (progressValue < 1) animationFrame = requestAnimationFrame(draw);
+    if (progressValue < 1) {
+      animationFrame = requestAnimationFrame(draw);
+    }
   };
   animationFrame = requestAnimationFrame(draw);
 }

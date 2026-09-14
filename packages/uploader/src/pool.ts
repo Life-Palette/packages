@@ -7,8 +7,11 @@
 export class PromisePool {
   private active = 0;
   private readonly queue: Array<() => void> = [];
+  private readonly limit: number;
 
-  constructor(private readonly limit: number) {}
+  constructor(limit: number) {
+    this.limit = limit;
+  }
 
   run<T>(task: () => Promise<T>): Promise<T> {
     return new Promise<T>((resolve, reject) => {
