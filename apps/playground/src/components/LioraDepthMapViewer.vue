@@ -1,0 +1,1837 @@
+<script setup lang="ts">
+import type {
+  Mesh,
+  OrthographicCamera,
+  Scene,
+  ShaderMaterial,
+  Texture,
+  Vector2,
+  WebGLRenderer,
+  WebGLRenderTarget,
+} from 'three'
+import type { Ref } from 'vue'
+import { computed, onBeforeUnmount, onMounted, ref, watch } from 'vue'
+
+export interface DepthMapViewerExpose {
+  play: () => void
+  isReady: Ref<boolean>
+  isLoading: Ref<boolean>
+  isAnimating: Ref<boolean>
+  isRevealing: Ref<boolean>
+}
+
+type DirectionMode = 'bottom-up' | 'top-down' | 'left-right' | 'right-left'
+
+interface FocusBox {
+  left: number
+  top: number
+  width: number
+  height: number
+}
+
+interface UniformValue<T> { value: T }
+interface ComposeUniforms extends Record<string, UniformValue<unknown>> {
+  uImage: UniformValue<Texture | null>
+  uDepth: UniformValue<Texture | null>
+  uFeedback: UniformValue<Texture | null>
+  uFrameCount: UniformValue<number>
+  uFadeProgress: UniformValue<number>
+  uBlurFactor: UniformValue<number>
+  uDelta: UniformValue<number>
+  uCanvasAspect: UniformValue<number>
+  uRectMin: UniformValue<Vector2>
+  uRectSize: UniformValue<Vector2>
+  uDirectionalDelay: UniformValue<number>
+  uDepthDelay: UniformValue<number>
+  uDepthCurvePower: UniformValue<number>
+  uDepthDetail: UniformValue<number>
+  uDirectionMode: UniformValue<number>
+  uInvertDepth: UniformValue<number>
+  uUseDepth: UniformValue<number>
+  uBlurEasePower: UniformValue<number>
+}
+interface DisplayUniforms extends Record<string, UniformValue<unknown>> {
+  uFeedback: UniformValue<Texture | null>
+  uDepth: UniformValue<Texture | null>
+  uFadeProgress: UniformValue<number>
+  uBlurFactor: UniformValue<number>
+  uMaxRadius: UniformValue<number>
+  uGrain: UniformValue<number>
+  uPixel: UniformValue<number>
+  uCanvasAspect: UniformValue<number>
+  uRectMin: UniformValue<Vector2>
+  uRectSize: UniformValue<Vector2>
+  uDirectionalDelay: UniformValue<number>
+  uDepthDelay: UniformValue<number>
+  uDepthCurvePower: UniformValue<number>
+  uDepthDetail: UniformValue<number>
+  uDirectionMode: UniformValue<number>
+  uInvertDepth: UniformValue<number>
+  uUseDepth: UniformValue<number>
+  uBlurEasePower: UniformValue<number>
+}
+
+interface PingPong {
+  read: WebGLRenderTarget
+  write: WebGLRenderTarget
+  swap: () => void
+  setSize: (width: number, height: number) => boolean
+  dispose: () => void
+}
+
+type ThreeModule = typeof import('three')
+
+const props = withDefaults(defineProps<{
+  imageUrl: string
+  depthUrl?: string
+  placeholderUrl?: string
+  placeholderAspectRatio?: number
+  imageWidth?: number
+  imageHeight?: number
+  revealDurationMs?: number
+  directionDurationSeconds?: number
+  depthDurationSeconds?: number
+  transitionBlurSeconds?: number
+  maxBlur?: number
+  blurEasePower?: number
+  directionalDelay?: number
+  depthDelay?: number
+  depthEasePower?: number
+  depthDetail?: number
+  grain?: number
+  directionMode?: DirectionMode
+  invertDepth?: boolean
+  autoPlay?: boolean
+  /** Loading/waiting text. Errors surface regardless. */
+  showStatusOverlay?: boolean
+  focusBox?: FocusBox | null
+  /**
+   * Identity of the pictured scene. When set, an imageUrl change under the same
+   * key is treated as a quality upgrade of the current picture — textures swap
+   * silently instead of replaying the blur-out/reveal transition.
+   */
+  sceneKey?: string | number | null
+}>(), {
+  depthUrl: '',
+  placeholderUrl: '',
+  revealDurationMs: 600,
+  directionDurationSeconds: 0,
+  depthDurationSeconds: 3,
+  transitionBlurSeconds: 0.8,
+  blurEasePower: 1,
+  directionalDelay: 0.5,
+  depthDelay: 0.2,
+  depthEasePower: 1,
+  depthDetail: 1,
+  grain: 0.05,
+  directionMode: 'bottom-up',
+  invertDepth: false,
+  autoPlay: true,
+  showStatusOverlay: true,
+  focusBox: null,
+  sceneKey: null,
+})
+
+const t = (key: string): string => {
+  const messages: Record<string, string> = {
+    'demoDepth.status.loading': '正在加载…',
+    'demoDepth.status.waiting': '等待图片',
+    'demoDepth.errors.loadFailed': '图片或深度图加载失败',
+  }
+  return messages[key] ?? key
+}
+
+const wrapperRef = ref<HTMLDivElement | null>(null)
+const canvasHost = ref<HTMLDivElement | null>(null)
+const isLoading = ref(false)
+const isReady = ref(false)
+const isAnimating = ref(false)
+const isRevealing = ref(false)
+const showFinalImage = ref(false)
+const revealProgress = ref(0)
+const statusMessage = ref('')
+let imageSize = { width: 1, height: 1 }
+const containerWidth = ref(0)
+
+const imageUrl = computed(() => props.imageUrl.trim())
+const depthUrl = computed(() => props.depthUrl?.trim() ?? '')
+const placeholderUrl = computed(() => props.placeholderUrl?.trim() ?? '')
+const hasPlaceholder = computed(() => placeholderUrl.value.length > 0)
+const hasDepth = computed(() => Boolean(depthUrl.value))
+const canRender = computed(() => Boolean(imageUrl.value))
+const revealSeconds = computed(() => Math.max(
+  0.2,
+  props.depthDurationSeconds,
+  props.directionDurationSeconds,
+))
+const imageAspectRatio = computed<number | undefined>(() => {
+  const width = props.imageWidth ?? 0
+  const height = props.imageHeight ?? 0
+  if (width <= 0 || height <= 0) {
+    return
+  }
+  return width / height
+})
+const displayAspectRatio = computed(() => {
+  const ratio = imageAspectRatio.value
+  if (ratio && Number.isFinite(ratio) && ratio > 0) {
+    return ratio
+  }
+  if (imageSize.width > 0 && imageSize.height > 0) {
+    return imageSize.width / imageSize.height
+  }
+  return 1
+})
+const wrapperStyle = computed<Record<string, string> | undefined>(() => {
+  const ratio = imageAspectRatio.value ?? props.placeholderAspectRatio
+  if (!ratio || !Number.isFinite(ratio) || ratio <= 0) {
+    return
+  }
+  return {
+    aspectRatio: ratio.toString(),
+    height: 'auto',
+    width: '100%',
+  }
+})
+/**
+ * The canvas bleeds past the wrapper by this fraction per side so the frosted
+ * edge can blur *outward* into the backdrop; inside its own box the bleed
+ * would be clipped and the edge could only fade inward.
+ */
+const BLEED = 0.08
+const BLEED_SCALE = 1 + 2 * BLEED
+const bleedStyle = { inset: `-${BLEED * 100}%` }
+const showOverlay = computed(() => {
+  if (statusMessage.value.length > 0) {
+    return true
+  }
+  if (!props.showStatusOverlay) {
+    return false
+  }
+  if (!canRender.value && !hasPlaceholder.value) {
+    return true
+  }
+  if (isLoading.value && !hasPlaceholder.value) {
+    return true
+  }
+  return false
+})
+const overlayText = computed(() => {
+  if (isLoading.value) {
+    return t('demoDepth.status.loading')
+  }
+  if (statusMessage.value.length > 0) {
+    return statusMessage.value
+  }
+  return t('demoDepth.status.waiting')
+})
+
+const focusBoxStyle = computed<Record<string, string> | null>(() => {
+  const focusBox = props.focusBox
+  if (!focusBox) {
+    return null
+  }
+  const left = Math.max(0, Math.min(1, focusBox.left))
+  const top = Math.max(0, Math.min(1, focusBox.top))
+  const right = Math.max(0, Math.min(1, focusBox.left + focusBox.width))
+  const bottom = Math.max(0, Math.min(1, focusBox.top + focusBox.height))
+  const width = right - left
+  const height = bottom - top
+  if (!Number.isFinite(width) || !Number.isFinite(height) || width <= 0 || height <= 0) {
+    return null
+  }
+  return {
+    left: `${(left * 100).toFixed(4)}%`,
+    top: `${(top * 100).toFixed(4)}%`,
+    width: `${(width * 100).toFixed(4)}%`,
+    height: `${(height * 100).toFixed(4)}%`,
+  }
+})
+
+const revealMaskStyle = computed<Record<string, string> | undefined>(() => {
+  if (!hasPlaceholder.value) {
+    return
+  }
+  const rawProgress = isReady.value ? revealProgress.value : 0
+  const clamped = Math.min(1, Math.max(0, rawProgress))
+  if (clamped <= 0) {
+    const emptyMask = 'linear-gradient(to top, rgba(0,0,0,0) 0%, rgba(0,0,0,0) 100%)'
+    return {
+      maskImage: emptyMask,
+      WebkitMaskImage: emptyMask,
+      maskRepeat: 'no-repeat',
+      WebkitMaskRepeat: 'no-repeat',
+      maskSize: '100% 100%',
+      WebkitMaskSize: '100% 100%',
+    }
+  }
+  const eased = clamped * clamped * (3 - 2 * clamped)
+  const visible = (eased * 100).toFixed(3)
+  const feather = 64
+  const mid = Math.min(100, Number(visible) + feather * 0.5).toFixed(3)
+  const fade = Math.min(100, Number(visible) + feather).toFixed(3)
+  const mask = `linear-gradient(to top, rgba(0,0,0,1) 0%, rgba(0,0,0,1) ${visible}%, rgba(0,0,0,0.35) ${mid}%, rgba(0,0,0,0) ${fade}%, rgba(0,0,0,0) 100%)`
+  return {
+    maskImage: mask,
+    WebkitMaskImage: mask,
+    maskRepeat: 'no-repeat',
+    WebkitMaskRepeat: 'no-repeat',
+    maskSize: '100% 100%',
+    WebkitMaskSize: '100% 100%',
+  }
+})
+
+let three: ThreeModule | null = null
+let renderer: WebGLRenderer | null = null
+let scene: Scene | null = null
+let camera: OrthographicCamera | null = null
+let mesh: Mesh | null = null
+let displayMaterial: ShaderMaterial | null = null
+let displayUniforms: DisplayUniforms | null = null
+let composeScene: Scene | null = null
+let composeMesh: Mesh | null = null
+let composeMaterial: ShaderMaterial | null = null
+let copyScene: Scene | null = null
+let copyMesh: Mesh | null = null
+let depthBlurScene: Scene | null = null
+let depthBlurMaterial: ShaderMaterial | null = null
+let depthBlurMesh: Mesh | null = null
+let depthBlurUniforms: { uTexture: UniformValue<Texture | null>, uStep: UniformValue<Vector2>, uSigma: UniformValue<number> } | null = null
+let depthBlurTargets: [WebGLRenderTarget, WebGLRenderTarget] | null = null
+let copyMaterial: ShaderMaterial | null = null
+let copyUniforms: { uTexture: UniformValue<Texture | null> } | null = null
+let composeUniforms: ComposeUniforms | null = null
+let feedback: PingPong | null = null
+let activeImageTexture: Texture | null = null
+let activeDepthTexture: Texture | null = null
+let revealAnimationFrame: number | null = null
+let resizeObserver: ResizeObserver | null = null
+let loadToken = 0
+let upgradeToken = 0
+let loadedSceneKey: string | number | null = null
+/* Texture loads can overlap (transition preload vs. same-scene upgrade); the
+   sequence numbers make sure an older request never overwrites a newer one. */
+let textureRequestSeq = 0
+let appliedTextureSeq = 0
+let meshScaleX = 1
+let meshScaleY = 1
+
+/**
+ * The feedback buffer accumulates each frame's blur on top of the previous
+ * frame's result, so the per-frame radius is deliberately tiny — the effective
+ * radius grows exponentially across frames.
+ */
+const COMPOSE_RADIUS = 0.011
+const DEFAULT_DISPLAY_RADIUS = 0.08
+/** Frames the compose pass writes the source image straight through to prime both buffers. */
+const BAKE_FRAMES = 3
+/**
+ * Bake writes a *sharp* image into the feedback buffer, so on first load the
+ * compose pass needs a few frames of iterated blur before the reveal begins —
+ * otherwise it starts from an almost-sharp frame. Counted in frames rather than
+ * milliseconds so a slow device still gets a soft start.
+ */
+const PRIME_FRAMES = BAKE_FRAMES + 12
+const PRIME_TIMEOUT_MS = 500
+/** Extra time after the reveal finishes for the exponential mix to converge. */
+const SETTLE_MS = 400
+const MAX_DELTA = 1 / 30
+
+/**
+ * Depth maps carry hard silhouettes, and a sparse per-pixel disk kernel turns
+ * them into a visible cloudy pattern that follows the edge. So the depth is
+ * blurred once per texture, with a dense separable Gaussian, into a small
+ * render target — smooth silhouettes, single-tap lookups afterwards.
+ */
+const DEPTH_BLUR_WIDTH = 256
+/** Gaussian sigma as a fraction of image width. */
+const DEPTH_SOFTEN = 0.035
+
+const depthBlurFragmentShader = `
+precision highp float;
+varying vec2 vUv;
+uniform sampler2D uTexture;
+uniform vec2 uStep;
+uniform float uSigma;
+const int MAX_TAPS = 40;
+void main() {
+  float sum = texture2D(uTexture, vUv).r;
+  float total = 1.0;
+  for (int i = 1; i <= MAX_TAPS; i++) {
+    float x = float(i);
+    if (x > uSigma * 3.0) {
+      break;
+    }
+    float weight = exp(-(x * x) / (2.0 * uSigma * uSigma));
+    sum += (texture2D(uTexture, vUv + uStep * x).r + texture2D(uTexture, vUv - uStep * x).r) * weight;
+    total += 2.0 * weight;
+  }
+  gl_FragColor = vec4(vec3(sum / total), 1.0);
+}
+`
+
+const vertexShader = `
+  varying vec2 vUv;
+  void main() {
+    vUv = uv;
+    gl_Position = projectionMatrix * modelViewMatrix * vec4(position, 1.0);
+  }
+`
+
+const fullscreenVertexShader = `
+  varying vec2 vUv;
+  void main() {
+    vUv = uv;
+    gl_Position = vec4(position.xy, 0.0, 1.0);
+  }
+`
+
+/* Carries the feedback buffer across a resize instead of discarding it. */
+const copyFragmentShader = `
+precision highp float;
+varying vec2 vUv;
+uniform sampler2D uTexture;
+void main() {
+  gl_FragColor = vec4(texture2D(uTexture, vUv).rgb, 1.0);
+}
+`
+
+/**
+ * Shared between the compose and display passes: both need to know, for a given
+ * pixel, *when* it gets revealed (`getOrder`) and *how much* of the reveal has
+ * reached it (`getFadeFactor`). They differ only in the progress window they map
+ * onto and the blur radius they apply.
+ *
+ * Two coordinate spaces are in play. The feedback buffer is in *screen* space so
+ * that resizing an image never invalidates it; blur radii and feedback lookups
+ * use screen uv. Depth, the source image, and the sweep are in *image* space.
+ * uRectMin/uRectSize map between them: image = (screen - rectMin) / rectSize.
+ */
+const shaderCommon = `
+precision highp float;
+
+varying vec2 vUv;
+
+uniform sampler2D uDepth;
+uniform float uFadeProgress;
+uniform float uBlurFactor;
+uniform float uCanvasAspect;
+uniform vec2 uRectMin;
+uniform vec2 uRectSize;
+
+uniform float uDirectionalDelay;
+uniform float uDepthDelay;
+uniform float uDepthCurvePower;
+uniform float uDepthDetail;
+uniform float uDirectionMode;
+uniform float uInvertDepth;
+uniform float uUseDepth;
+uniform float uBlurEasePower;
+
+const float TAU = 6.28318530718;
+const float GOLDEN_ANGLE = 2.39996323;
+
+/* Outside the letterboxed image rect this clamps, so the blur extends the edge
+   colour rather than dragging in transparent pixels. */
+vec2 toImageUv(vec2 screenUv) {
+  return clamp((screenUv - uRectMin) / uRectSize, 0.0, 1.0);
+}
+
+float valueRemap(float value, float inMin, float inMax, float outMin, float outMax) {
+  return outMin + (value - inMin) * (outMax - outMin) / (inMax - inMin);
+}
+
+vec3 permute(vec3 x) { return mod(((x * 34.0) + 1.0) * x, 289.0); }
+
+float snoise(vec2 v) {
+  const vec4 C = vec4(0.211324865405187, 0.366025403784439,
+                     -0.577350269189626, 0.024390243902439);
+  vec2 i  = floor(v + dot(v, C.yy));
+  vec2 x0 = v - i + dot(i, C.xx);
+  vec2 i1 = (x0.x > x0.y) ? vec2(1.0, 0.0) : vec2(0.0, 1.0);
+  vec4 x12 = x0.xyxy + C.xxzz;
+  x12.xy -= i1;
+  i = mod(i, 289.0);
+  vec3 p = permute(permute(i.y + vec3(0.0, i1.y, 1.0)) + i.x + vec3(0.0, i1.x, 1.0));
+  vec3 m = max(0.5 - vec3(dot(x0, x0), dot(x12.xy, x12.xy), dot(x12.zw, x12.zw)), 0.0);
+  m = m * m;
+  m = m * m;
+  vec3 x = 2.0 * fract(p * C.www) - 1.0;
+  vec3 h = abs(x) - 0.5;
+  vec3 ox = floor(x + 0.5);
+  vec3 a0 = x - ox;
+  m *= 1.79284291400159 - 0.85373472095314 * (a0 * a0 + h * h);
+  vec3 g;
+  g.x = a0.x * x0.x + h.x * x0.y;
+  g.yz = a0.yz * x12.xz + h.yz * x12.yw;
+  return 130.0 * dot(m, g);
+}
+
+/* Low-frequency noise, used to rotate each pixel's sampling disk. Without this
+   the Vogel spiral leaves a visible structured pattern at large radii. */
+float getNoise(vec2 coord) {
+  vec2 p = coord * 0.99;
+  float n = 0.0;
+  float amplitude = 1.0;
+  float frequency = 1.0;
+  for (int i = 0; i < 3; i++) {
+    n += amplitude * snoise(p * frequency);
+    amplitude *= 0.5;
+    frequency *= 2.0;
+  }
+  return n * 0.5 + 0.5;
+}
+
+vec2 vogelDisk(int sampleIndex, int sampleCount) {
+  float r = sqrt(float(sampleIndex) + 0.5) / sqrt(float(sampleCount));
+  float theta = float(sampleIndex) * GOLDEN_ANGLE;
+  return vec2(r * cos(theta), r * sin(theta));
+}
+
+float gaussian(float x, float sigma) {
+  return exp(-(x * x) / (2.0 * sigma * sigma));
+}
+
+float easeInOutPow(float value, float power) {
+  float t = clamp(value, 0.0, 1.0);
+  float p = max(0.01, power);
+  if (t < 0.5) {
+    return 0.5 * pow(2.0 * t, p);
+  }
+  return 1.0 - 0.5 * pow(2.0 * (1.0 - t), p);
+}
+
+float easeSignedPow(float value, float power) {
+  float t = clamp(value, 0.0, 1.0);
+  float p = abs(power);
+  if (p < 0.01) {
+    return t;
+  }
+  if (power >= 0.0) {
+    return pow(t, p);
+  }
+  return 1.0 - pow(1.0 - t, p);
+}
+
+/* Returns nearness: 1 = closest to camera. MiDaS emits inverse depth, so the
+   raw texture is already nearness — uInvertDepth is for maps that are not. */
+/* uDepth is pre-blurred on upload (see softenDepth), so one tap is enough. */
+float sampleNearness(vec2 imageUv) {
+  float d = texture2D(uDepth, imageUv).r;
+  if (uInvertDepth > 0.5) {
+    d = 1.0 - d;
+  }
+  return clamp(d, 0.0, 1.0);
+}
+
+/* Biases the far field by image height so the sweep follows perspective rather
+   than the depth map alone — ground planes read as nearer at the bottom.
+   Takes and returns nearness. */
+float addDepthDetail(float depth, float imageY) {
+  float extra = uDepthDetail;
+  if (extra <= 0.0) {
+    return clamp(depth, 0.0, 1.0);
+  }
+  float transitionMin = 0.6;
+  float d = depth;
+  float additional = clamp(valueRemap(d, transitionMin, 0.0, 0.0, 1.0), 0.0, 1.0) * imageY * extra;
+  if (d < transitionMin) {
+    d -= additional;
+  }
+  d = valueRemap(d, 1.0, -extra, 1.0, 0.0);
+  return clamp(d, 0.0, 1.0);
+}
+
+float getSweep(vec2 imageUv) {
+  if (uDirectionMode > 0.5 && uDirectionMode < 1.5) {
+    return 1.0 - imageUv.y;
+  }
+  if (uDirectionMode >= 1.5 && uDirectionMode < 2.5) {
+    return imageUv.x;
+  }
+  if (uDirectionMode >= 2.5) {
+    return 1.0 - imageUv.x;
+  }
+  return imageUv.y;
+}
+
+/* 0 = revealed first, 1 = revealed last. The two delay props act as weights.
+   Near pixels come into focus before far ones, so order tracks farness. */
+float getOrder(vec2 imageUv) {
+  float depthOrder = 0.0;
+  if (uUseDepth > 0.5) {
+    float nearness = addDepthDetail(sampleNearness(imageUv), imageUv.y);
+    depthOrder = easeInOutPow(1.0 - nearness, uDepthCurvePower);
+  }
+  float total = uDirectionalDelay + uDepthDelay;
+  if (total < 0.0001) {
+    return 0.0;
+  }
+  float delay = getSweep(imageUv) * uDirectionalDelay + depthOrder * uDepthDelay;
+  return clamp(delay / total, 0.0, 1.0);
+}
+
+/* A soft band of the given amplitude sweeping across the order value, rather
+   than a hard threshold. Returns 1 where the pixel is fully revealed. */
+float getFadeFactor(float order, float lo, float hi, float amplitude, float midLow) {
+  float progress = clamp(valueRemap(uFadeProgress, lo, hi, 0.0, 1.0), 0.0, 1.0);
+  float halfAmplitude = amplitude * 0.5;
+  float middle = valueRemap(progress, 0.0, 1.0, midLow, 1.0 + halfAmplitude);
+  float fade = clamp(valueRemap(order, middle - halfAmplitude, middle + halfAmplitude, 1.0, 0.0), 0.0, 1.0);
+  // Hermite across the band: a linear ramp shows both of its edges.
+  fade = fade * fade * (3.0 - 2.0 * fade);
+  return easeSignedPow(fade, uBlurEasePower);
+}
+
+/* Samples in screen uv; the x correction keeps the disk circular on screen. */
+vec3 vogelBlur(sampler2D tex, vec2 screenUv, float radius, float sigma, float rotation, int samples) {
+  vec3 color = vec3(0.0);
+  float cosR = cos(rotation);
+  float sinR = sin(rotation);
+  float totalWeight = 0.0;
+  for (int i = 0; i < 64; i++) {
+    if (i >= samples) {
+      break;
+    }
+    vec2 offset = vogelDisk(i, samples) * radius;
+    vec2 rotated = vec2(
+      offset.x * cosR - offset.y * sinR,
+      offset.x * sinR + offset.y * cosR
+    );
+    rotated.x /= uCanvasAspect;
+    float weight = gaussian(length(rotated), sigma);
+    color += texture2D(tex, screenUv + rotated).rgb * weight;
+    totalWeight += weight;
+  }
+  return color / totalWeight;
+}
+`
+
+/**
+ * Pass 1 — writes into the float ping-pong buffer.
+ *
+ * Every pixel re-blurs the previous frame's output by (1 - fade) while
+ * absorbing the target colour at a frame-rate independent exponential rate —
+ * slowly where unrevealed, faster as the front passes. The equilibrium of
+ * "blur, then mix in a little sharp target" is the target seen through frosted
+ * glass, so the whole frame shows the new image frosted within ~half a second
+ * and the sweep only grades the frost down to sharp. That graded frost, rather
+ * than an old image dissolving into a new one, is what reads as Apple's
+ * product-viewer wipe. Held off during blur-out, or the sharp old image would
+ * fight the blur.
+ */
+const composeFragmentShader = `
+${shaderCommon}
+
+uniform sampler2D uImage;
+uniform sampler2D uFeedback;
+uniform float uFrameCount;
+uniform float uDelta;
+
+const int COMPOSE_SAMPLES = 8;
+const float COMPOSE_RADIUS = ${COMPOSE_RADIUS.toFixed(6)};
+const float FADE_AMPLITUDE = 1.1;
+const float FADE_MID_START = -0.4;
+const float FADE_ENDS_AT = 0.7;
+const float MIX_MULTIPLIER = 4.0;
+/* Absorption rate for unrevealed pixels, as a fraction of the revealed rate. */
+const float FROST_ABSORB = 0.5;
+
+void main() {
+  // vUv is screen uv here: this pass fills the whole feedback buffer, including
+  // the letterbox, where toImageUv clamps to the image's edge pixels.
+  vec2 imageUv = toImageUv(vUv);
+
+  if (uFrameCount < ${BAKE_FRAMES.toFixed(1)}) {
+    gl_FragColor = vec4(texture2D(uImage, imageUv).rgb, 1.0);
+    return;
+  }
+
+  float order = getOrder(imageUv);
+  float fade = getFadeFactor(order, 0.0, FADE_ENDS_AT, FADE_AMPLITUDE, FADE_MID_START);
+
+  float blurSize = max(1.0 - fade, uBlurFactor);
+  vec3 previous;
+  if (blurSize > 0.000001) {
+    float rotation = getNoise(gl_FragCoord.xy) * TAU;
+    float radius = COMPOSE_RADIUS * blurSize;
+    previous = vogelBlur(uFeedback, vUv, radius, radius * 0.5, rotation, COMPOSE_SAMPLES);
+  }
+  else {
+    previous = texture2D(uFeedback, vUv).rgb;
+  }
+
+  vec3 target = texture2D(uImage, imageUv).rgb;
+  float mixFactor = clamp(mix(FROST_ABSORB, 1.0, fade) * (1.0 - uBlurFactor) * MIX_MULTIPLIER * uDelta, 0.0, 1.0);
+  gl_FragColor = vec4(mix(previous, target, mixFactor), 1.0);
+}
+`
+
+/**
+ * Pass 2 — reads the feedback buffer, applies the wide bokeh, presents to canvas.
+ *
+ * Covers the whole canvas, not just the image rect: samples that land outside
+ * the rect count as the surround, so the edge blurs outward exactly as far as
+ * the content does — at full frost the frame melts into the backdrop, when
+ * sharp the edge is hard. The letterbox stays transparent for the host to paint.
+ *
+ * Its progress window runs the full reveal, while the compose pass finishes at 0.7,
+ * so colour lands before sharpness does.
+ */
+const displayFragmentShader = `
+${shaderCommon}
+
+uniform sampler2D uFeedback;
+uniform float uMaxRadius;
+uniform float uGrain;
+uniform float uPixel;
+
+const int DISPLAY_SAMPLES = 32;
+/* The band is wider than the frame on purpose: think of a tilted sheet of
+   frosted glass laid down onto the photo. At progress 0 it hovers over the
+   whole frame — lower at the bottom (order 0 ≈ 2/3 frost) than the top
+   (order 1 = full frost) — then it settles: the contact line reaches the
+   bottom at mid-reveal and climbs to the top by the end, the tilt flattening
+   as it goes, so blur grades across the whole height at every instant. */
+const float FADE_AMPLITUDE = 1.1;
+const float FADE_MID_START = -0.2;
+/* After Apple's iPhone Duo product viewer: darkening only rides the last 30%
+   of the blur ramp (their shade = smoothstep(1.3, 0.9, blurArea)). */
+const float SHADE_FLOOR = 0.25;
+
+/* 1 inside the image rect, 0 outside, feathered over one pixel so the sharp
+   edge stays antialiased. */
+float coverage(vec2 screenUv) {
+  vec2 d = min(screenUv - uRectMin, uRectMin + uRectSize - screenUv);
+  return smoothstep(0.0, uPixel, min(d.x, d.y));
+}
+
+/* vogelBlur with coverage: colour is averaged over covered samples only (the
+   feedback's clamped letterbox must not tint the edge), alpha is the covered
+   share of the kernel. Straight alpha. */
+vec4 blurCovered(vec2 screenUv, float radius, float rotation) {
+  vec3 color = vec3(0.0);
+  float cover = 0.0;
+  float totalWeight = 0.0;
+  float cosR = cos(rotation);
+  float sinR = sin(rotation);
+  for (int i = 0; i < DISPLAY_SAMPLES; i++) {
+    vec2 offset = vogelDisk(i, DISPLAY_SAMPLES) * radius;
+    vec2 rotated = vec2(
+      offset.x * cosR - offset.y * sinR,
+      offset.x * sinR + offset.y * cosR
+    );
+    rotated.x /= uCanvasAspect;
+    vec2 uv = screenUv + rotated;
+    float weight = gaussian(length(rotated), radius * 0.5);
+    float covered = weight * coverage(uv);
+    color += texture2D(uFeedback, uv).rgb * covered;
+    cover += covered;
+    totalWeight += weight;
+  }
+  return vec4(color / max(cover, 0.000001), cover / totalWeight);
+}
+
+void main() {
+  // vUv is screen uv here: this pass covers the whole canvas.
+  vec2 screenUv = vUv;
+  vec2 imageUv = toImageUv(screenUv);
+
+  float order = getOrder(imageUv);
+  float fade = getFadeFactor(order, 0.0, 1.0, FADE_AMPLITUDE, FADE_MID_START);
+
+  float blurAmount = max(1.0 - fade, uBlurFactor);
+  float noiseFactor = getNoise(gl_FragCoord.xy);
+  float radius = uMaxRadius * blurAmount;
+
+  vec4 frosted;
+  if (radius < 0.000001) {
+    frosted = vec4(texture2D(uFeedback, screenUv).rgb, coverage(screenUv));
+  }
+  else {
+    frosted = blurCovered(screenUv, radius, noiseFactor * TAU);
+  }
+
+  float shade = mix(1.0, SHADE_FLOOR, smoothstep(0.7, 1.0, blurAmount));
+  gl_FragColor = vec4(frosted.rgb * shade, frosted.a);
+
+  // The pipeline is gamma-space end to end (no decode on load, no encode
+  // here), so the grain offset lands on encoded values, where it stays
+  // perceptually even instead of blowing out the shadows.
+  // Only where the image is out of focus, so sharp areas stay clean.
+  // getNoise sums three octaves, so its range overshoots [0,1] — clamp before
+  // treating it as a signed offset or the grain gets ~75% hotter than uGrain.
+  float grain = clamp(noiseFactor, 0.0, 1.0) - 0.5;
+  gl_FragColor.rgb = clamp(gl_FragColor.rgb + grain * uGrain * blurAmount, 0.0, 1.0);
+}
+`
+
+/* ---------------- tweens ---------------- */
+
+interface Tween {
+  from: number
+  to: number
+  startedAt: number
+  durationMs: number
+  apply: (value: number) => void
+  resolve: () => void
+  token: number
+}
+
+let tweens: Tween[] = []
+
+/**
+ * cubic-bezier(0.42, 0, 1, 1) — the standard `ease-in`: the sweep gathers speed
+ * instead of snapping off the line. No ease-out at the end — the shader's soft
+ * band already lands the reveal gently.
+ */
+function easeIn(t: number): number {
+  if (t <= 0) {
+    return 0
+  }
+  if (t >= 1) {
+    return 1
+  }
+  const x1 = 0.42
+  const x2 = 1
+  // Solve x(u) = t for u by bisection, then evaluate y(u).
+  let low = 0
+  let high = 1
+  let u = t
+  for (let i = 0; i < 20; i++) {
+    u = (low + high) / 2
+    const inv = 1 - u
+    const x = 3 * inv * inv * u * x1 + 3 * inv * u * u * x2 + u * u * u
+    if (x < t) {
+      low = u
+    }
+    else {
+      high = u
+    }
+  }
+  const inv = 1 - u
+  // y1 = 0, y2 = 1
+  return 3 * inv * u * u + u * u * u
+}
+
+function tween(
+  from: number,
+  to: number,
+  durationMs: number,
+  apply: (value: number) => void,
+  token: number,
+): Promise<void> {
+  apply(from)
+  if (durationMs <= 0) {
+    apply(to)
+    return Promise.resolve()
+  }
+  return new Promise((resolve) => {
+    tweens.push({
+      from,
+      to,
+      startedAt: performance.now(),
+      durationMs,
+      apply,
+      resolve,
+      token,
+    })
+  })
+}
+
+function stepTweens(now: number): void {
+  if (tweens.length === 0) {
+    return
+  }
+  const remaining: Tween[] = []
+  for (const item of tweens) {
+    if (item.token !== loadToken) {
+      item.resolve()
+      continue
+    }
+    const progress = Math.min(1, (now - item.startedAt) / item.durationMs)
+    item.apply(item.from + (item.to - item.from) * easeIn(progress))
+    if (progress < 1) {
+      remaining.push(item)
+    }
+    else {
+      item.resolve()
+    }
+  }
+  tweens = remaining
+}
+
+function cancelTweens(): void {
+  for (const item of tweens) {
+    item.resolve()
+  }
+  tweens = []
+  resolvePrime()
+}
+
+function sleep(ms: number): Promise<void> {
+  return new Promise(resolve => setTimeout(resolve, ms))
+}
+
+/* ---------------- render loop ---------------- */
+
+let loopFrame: number | null = null
+let lastFrameTime = 0
+let frameCount = 0
+
+/* Resolves once the compose pass has run `frames` more iterations, or the
+   deadline passes. Only meaningful while the render loop is running. */
+let primeTarget = 0
+let primeDeadline = 0
+let primeResolve: (() => void) | null = null
+
+function waitForPrime(frames: number): Promise<void> {
+  resolvePrime()
+  primeTarget = frameCount + frames
+  primeDeadline = performance.now() + PRIME_TIMEOUT_MS
+  return new Promise((resolve) => {
+    primeResolve = resolve
+  })
+}
+
+function resolvePrime(): void {
+  if (primeResolve) {
+    const resolve = primeResolve
+    primeResolve = null
+    resolve()
+  }
+}
+
+function stepPrime(now: number): void {
+  if (primeResolve && (frameCount >= primeTarget || now >= primeDeadline)) {
+    resolvePrime()
+  }
+}
+
+function renderFrame(delta: number): void {
+  if (!renderer || !scene || !camera || !composeScene || !feedback || !composeUniforms || !displayUniforms) {
+    return
+  }
+  composeUniforms.uDelta.value = delta
+  composeUniforms.uFrameCount.value = frameCount
+  composeUniforms.uFeedback.value = feedback.read.texture
+
+  renderer.setRenderTarget(feedback.write)
+  renderer.render(composeScene, camera)
+  feedback.swap()
+  frameCount += 1
+
+  displayUniforms.uFeedback.value = feedback.read.texture
+  renderer.setRenderTarget(null)
+  renderer.render(scene, camera)
+}
+
+function loop(now: number): void {
+  loopFrame = requestAnimationFrame(loop)
+  const delta = lastFrameTime === 0 ? 1 / 60 : Math.min(MAX_DELTA, (now - lastFrameTime) / 1000)
+  lastFrameTime = now
+  stepTweens(now)
+  renderFrame(delta)
+  stepPrime(now)
+}
+
+function startLoop(): void {
+  if (loopFrame !== null) {
+    return
+  }
+  lastFrameTime = 0
+  loopFrame = requestAnimationFrame(loop)
+}
+
+function stopLoop(): void {
+  if (loopFrame !== null) {
+    cancelAnimationFrame(loopFrame)
+    loopFrame = null
+  }
+}
+
+/* ---------------- sizing ---------------- */
+
+function updateMeshScale(): void {
+  const host = wrapperRef.value ?? canvasHost.value
+  if (!mesh || !host) {
+    return
+  }
+  const { width, height } = host.getBoundingClientRect()
+  if (width <= 0 || height <= 0) {
+    return
+  }
+  const containerAspect = width / height
+  const imageAspect = displayAspectRatio.value
+  meshScaleX = 1
+  meshScaleY = 1
+  if (imageAspect > containerAspect) {
+    meshScaleY = containerAspect / imageAspect
+  }
+  else {
+    meshScaleX = imageAspect / containerAspect
+  }
+}
+
+/**
+ * Where the contained image sits inside the canvas, in screen uv. Cheap, and
+ * safe to call mid-animation: it never touches the feedback buffer, so changing
+ * the image, its aspect ratio, or any tuning prop cannot interrupt a reveal.
+ */
+function updateProjection(): void {
+  if (!renderer || !composeUniforms || !displayUniforms) {
+    return
+  }
+  const host = wrapperRef.value ?? canvasHost.value
+  if (!host) {
+    return
+  }
+  const { width, height } = host.getBoundingClientRect()
+  if (width <= 0 || height <= 0) {
+    return
+  }
+  // Letterbox the image inside the wrapper, then place the wrapper inside the
+  // bled canvas. Same aspect either way, since the bleed is proportional.
+  for (const target of [composeUniforms, displayUniforms]) {
+    target.uRectMin.value.set(
+      (BLEED + (1 - meshScaleX) / 2) / BLEED_SCALE,
+      (BLEED + (1 - meshScaleY) / 2) / BLEED_SCALE,
+    )
+    target.uRectSize.value.set(meshScaleX / BLEED_SCALE, meshScaleY / BLEED_SCALE)
+    target.uCanvasAspect.value = width / height
+  }
+  displayUniforms.uPixel.value = 1 / (height * BLEED_SCALE)
+
+  // Per-sample radius, not the perceived one: the feedback loop compounds it
+  // across frames, so it is several times wider than this by the time it lands.
+  const maxBlur = props.maxBlur
+  displayUniforms.uMaxRadius.value
+    = typeof maxBlur === 'number' && Number.isFinite(maxBlur) && maxBlur > 0
+      ? Math.min(0.2, maxBlur / (width * BLEED_SCALE))
+      : DEFAULT_DISPLAY_RADIUS
+}
+
+function canvasSize(): { width: number, height: number } | null {
+  const host = wrapperRef.value ?? canvasHost.value
+  if (!host) {
+    return null
+  }
+  const { width, height } = host.getBoundingClientRect()
+  return width > 0 && height > 0
+    ? { width: width * BLEED_SCALE, height: height * BLEED_SCALE }
+    : null
+}
+
+/**
+ * The wrapper has no height until an aspect ratio is known, and the canvas takes
+ * its height from the wrapper. Creating the feedback buffer before then would
+ * size it 1px tall and force a reset — mid-reveal — once the real size lands.
+ * So the buffer, and playback, wait for a usable size.
+ */
+function ensureFeedback(): boolean {
+  if (feedback) {
+    return true
+  }
+  if (!three || !renderer || !canvasHost.value) {
+    return false
+  }
+  const size = canvasSize()
+  if (!size) {
+    return false
+  }
+  // The canvas is absolutely positioned and bled past the wrapper, so it never
+  // sizes the wrapper: that comes from the aspect ratio or the host.
+  renderer.setSize(size.width, size.height)
+  if (!renderer.domElement.isConnected) {
+    renderer.domElement.style.display = 'block'
+    canvasHost.value.append(renderer.domElement)
+  }
+  const pixelRatio = renderer.getPixelRatio()
+  feedback = createPingPong(
+    three,
+    renderer,
+    Math.min(1600, Math.max(1, Math.round(size.width * pixelRatio))),
+    Math.min(1200, Math.max(1, Math.round(size.height * pixelRatio))),
+  )
+  frameCount = 0
+  updateMeshScale()
+  updateProjection()
+  return true
+}
+
+/**
+ * Resizing a render target discards its contents, and a bare re-bake would
+ * write the *sharp* source image back into the feedback buffer — wiping out a
+ * dissolve in progress. Callers resize for reasons that have nothing to do with
+ * the animation (a container settling into its final layout, a window resize),
+ * so instead we allocate at the new size and blit the old contents across.
+ * frameCount is left alone, so the compose pass never re-bakes.
+ */
+function resizeRenderTargets(): void {
+  if (!three || !renderer || !feedback || !camera || !copyScene || !copyUniforms) {
+    return
+  }
+  const size = canvasSize()
+  if (!size) {
+    return
+  }
+  const pixelRatio = renderer.getPixelRatio()
+  const width = Math.max(1, Math.round(size.width * pixelRatio))
+  const height = Math.max(1, Math.round(size.height * pixelRatio))
+  if (feedback.read.width === width && feedback.read.height === height) {
+    return
+  }
+
+  const next = createPingPong(three, renderer, width, height)
+  copyUniforms.uTexture.value = feedback.read.texture
+  for (const target of [next.read, next.write]) {
+    renderer.setRenderTarget(target)
+    renderer.render(copyScene, camera)
+  }
+  renderer.setRenderTarget(null)
+  feedback.dispose()
+  feedback = next
+}
+
+/* ---------------- textures ---------------- */
+
+async function loadTexture(url: string): Promise<Texture> {
+  const threeModule = three
+  if (!threeModule) {
+    throw new Error('Three.js is not ready.')
+  }
+  const loader = new threeModule.TextureLoader()
+  return await new Promise((resolve, reject) => {
+    loader.load(
+      url,
+      (texture: Texture) => {
+        texture.generateMipmaps = false
+        texture.minFilter = threeModule.LinearFilter
+        texture.magFilter = threeModule.LinearFilter
+        // Deliberately no sRGB decode: the whole pipeline blends encoded values.
+        // Blurring in linear light blooms the highlights; blending in gamma
+        // space gives the muted, frosted dissolve of the bfl.ai hero.
+        resolve(texture)
+      },
+      undefined,
+      () => reject(new Error(t('demoDepth.errors.loadFailed'))),
+    )
+  })
+}
+
+function createFallbackDepthTexture(threeModule: ThreeModule): Texture {
+  const data = new Uint8Array([128])
+  const texture = new threeModule.DataTexture(
+    data,
+    1,
+    1,
+    threeModule.RedFormat,
+    threeModule.UnsignedByteType,
+  )
+  texture.generateMipmaps = false
+  texture.minFilter = threeModule.LinearFilter
+  texture.magFilter = threeModule.LinearFilter
+  texture.needsUpdate = true
+  return texture
+}
+
+/**
+ * Two-pass Gaussian of the depth map into a render target sized to
+ * DEPTH_BLUR_WIDTH. Returns the source untouched when there is no real depth.
+ */
+function softenDepth(source: Texture): Texture {
+  const threeModule = three
+  if (!threeModule || !renderer || !depthBlurScene || !depthBlurUniforms || !hasDepth.value) {
+    return source
+  }
+  const image = source.image as { width?: number, height?: number } | null | undefined
+  const aspect = (image?.width ?? 1) / Math.max(1, image?.height ?? 1)
+  const width = DEPTH_BLUR_WIDTH
+  const height = Math.max(1, Math.round(width / aspect))
+  if (!depthBlurTargets || depthBlurTargets[0].width !== width || depthBlurTargets[0].height !== height) {
+    if (depthBlurTargets) {
+      for (const target of depthBlurTargets) target.dispose()
+    }
+    const options = {
+      minFilter: threeModule.LinearFilter,
+      magFilter: threeModule.LinearFilter,
+      format: threeModule.RGBAFormat,
+      depthBuffer: false,
+      stencilBuffer: false,
+      generateMipmaps: false,
+    }
+    depthBlurTargets = [
+      new threeModule.WebGLRenderTarget(width, height, options),
+      new threeModule.WebGLRenderTarget(width, height, options),
+    ]
+  }
+  const [horizontal, vertical] = depthBlurTargets
+  const uniforms = depthBlurUniforms
+  uniforms.uSigma.value = DEPTH_SOFTEN * width
+  uniforms.uTexture.value = source
+  uniforms.uStep.value.set(1 / width, 0)
+  renderer.setRenderTarget(horizontal)
+  renderer.render(depthBlurScene, camera!)
+  uniforms.uTexture.value = horizontal.texture
+  uniforms.uStep.value.set(0, 1 / height)
+  renderer.setRenderTarget(vertical)
+  renderer.render(depthBlurScene, camera!)
+  renderer.setRenderTarget(null)
+  uniforms.uTexture.value = null
+  return vertical.texture
+}
+
+function applyTextures(imageTexture: Texture, depthTexture: Texture, seq: number): void {
+  if (!composeUniforms || !displayUniforms || seq <= appliedTextureSeq) {
+    imageTexture.dispose()
+    depthTexture.dispose()
+    return
+  }
+  appliedTextureSeq = seq
+  activeImageTexture?.dispose()
+  activeDepthTexture?.dispose()
+  activeImageTexture = imageTexture
+  activeDepthTexture = depthTexture
+  const softened = softenDepth(depthTexture)
+  composeUniforms.uImage.value = imageTexture
+  composeUniforms.uDepth.value = softened
+  displayUniforms.uDepth.value = softened
+  const image = imageTexture.image as { width?: number, height?: number } | null | undefined
+  imageSize = {
+    width: image?.width ?? 1,
+    height: image?.height ?? 1,
+  }
+  updateMeshScale()
+  updateProjection()
+}
+
+async function loadPair(): Promise<[Texture, Texture]> {
+  const threeModule = three
+  if (!threeModule) {
+    throw new Error('Three.js is not ready.')
+  }
+  const [imageTexture, depthTexture] = await Promise.all([
+    loadTexture(imageUrl.value),
+    hasDepth.value
+      ? loadTexture(depthUrl.value)
+      : Promise.resolve(createFallbackDepthTexture(threeModule)),
+  ])
+  return [imageTexture, depthTexture]
+}
+
+function setFadeProgress(value: number): void {
+  if (composeUniforms) {
+    composeUniforms.uFadeProgress.value = value
+  }
+  if (displayUniforms) {
+    displayUniforms.uFadeProgress.value = value
+  }
+}
+
+function setBlurFactor(value: number): void {
+  if (composeUniforms) {
+    composeUniforms.uBlurFactor.value = value
+  }
+  if (displayUniforms) {
+    displayUniforms.uBlurFactor.value = value
+  }
+}
+
+async function runReveal(token: number): Promise<void> {
+  isAnimating.value = true
+  await tween(0, 1, revealSeconds.value * 1000, setFadeProgress, token)
+  if (token !== loadToken) {
+    return
+  }
+  // Let the exponential mix converge before the sharp <img> takes over.
+  await sleep(SETTLE_MS)
+  if (token !== loadToken) {
+    return
+  }
+  isAnimating.value = false
+  showFinalImage.value = true
+  stopLoop()
+}
+
+/**
+ * Blur the whole frame out, swap textures while nothing is legible, then sweep
+ * the new image back into focus. Decode happens behind the blur, so there is no
+ * pop-in and no stall.
+ */
+async function runTransition(token: number): Promise<void> {
+  showFinalImage.value = false
+  if (!ensureFeedback()) {
+    return
+  }
+  isAnimating.value = true
+  startLoop()
+  // The placeholder may still be covering the canvas if the first load never
+  // got to play (e.g. autoPlay was false until the full-size image arrived).
+  void startReveal(token)
+
+  const seq = ++textureRequestSeq
+  const preload = loadPair()
+  const blurOut = tween(0, 1, props.transitionBlurSeconds * 1000, setBlurFactor, token)
+  const [textures] = await Promise.all([preload, blurOut])
+  if (token !== loadToken) {
+    textures[0].dispose()
+    textures[1].dispose()
+    return
+  }
+
+  applyTextures(textures[0], textures[1], seq)
+  setBlurFactor(0)
+  setFadeProgress(0)
+  await runReveal(token)
+}
+
+/**
+ * Same-scene quality upgrade: swap in the sharper texture without touching the
+ * animation state. Mid-reveal the compose pass absorbs the new image where
+ * pixels are already revealed; after the reveal the final <img> tracks imageUrl
+ * on its own. The reveal itself stays gated on autoPlay via scheduleAutoPlay.
+ */
+async function upgradeTextures(): Promise<void> {
+  const token = ++upgradeToken
+  const sceneToken = loadToken
+  const seq = ++textureRequestSeq
+  try {
+    const [imageTexture, depthTexture] = await loadPair()
+    if (token !== upgradeToken || sceneToken !== loadToken) {
+      imageTexture.dispose()
+      depthTexture.dispose()
+      return
+    }
+    applyTextures(imageTexture, depthTexture, seq)
+  }
+  catch {
+    // Keep showing the current texture; the upgrade is best-effort.
+  }
+}
+
+async function loadTextures(): Promise<void> {
+  if (!three || !composeUniforms || !canRender.value) {
+    return
+  }
+  cancelTweens()
+  stopReveal()
+  stopRevealDelay()
+  isAnimating.value = false
+  isReady.value = false
+  showFinalImage.value = false
+
+  const token = ++loadToken
+  loadedSceneKey = props.sceneKey ?? null
+  const isFirstLoad = !activeImageTexture
+  isLoading.value = true
+  statusMessage.value = ''
+
+  try {
+    if (isFirstLoad) {
+      const seq = ++textureRequestSeq
+      const [imageTexture, depthTexture] = await loadPair()
+      if (token !== loadToken) {
+        imageTexture.dispose()
+        depthTexture.dispose()
+        return
+      }
+      applyTextures(imageTexture, depthTexture, seq)
+      setBlurFactor(0)
+      setFadeProgress(0)
+      updateUniforms()
+      isReady.value = true
+      isLoading.value = false
+      // If the canvas has no size yet, the ResizeObserver starts playback instead.
+      if (ensureFeedback()) {
+        frameCount = 0
+        startLoop()
+        void scheduleAutoPlay(token)
+      }
+      return
+    }
+
+    updateUniforms()
+    isReady.value = true
+    isLoading.value = false
+    await runTransition(token)
+  }
+  catch (error) {
+    statusMessage.value = error instanceof Error ? error.message : t('demoDepth.errors.loadFailed')
+  }
+  finally {
+    isLoading.value = false
+  }
+}
+
+/* ---------------- reveal mask (placeholder) ---------------- */
+
+function stopReveal(): void {
+  if (revealAnimationFrame !== null) {
+    cancelAnimationFrame(revealAnimationFrame)
+    revealAnimationFrame = null
+  }
+  isRevealing.value = false
+}
+
+/* The reveal no longer waits on a timer, only on primed frames. */
+function stopRevealDelay(): void {
+  resolvePrime()
+}
+
+/**
+ * Wipes the placeholder away to expose the canvas. Every path that renders to
+ * the canvas must call this, or the mask leaves the canvas invisible and the
+ * viewer appears to jump straight from placeholder to final image.
+ *
+ * Resumes from the current progress rather than restarting, so swapping the
+ * image mid-wipe does not snap the placeholder back over the canvas.
+ */
+function startReveal(token: number): Promise<void> {
+  stopReveal()
+  if (!hasPlaceholder.value) {
+    revealProgress.value = 1
+    return Promise.resolve()
+  }
+  const from = Math.min(1, Math.max(0, revealProgress.value))
+  if (from >= 1) {
+    return Promise.resolve()
+  }
+  const duration = Math.max(200, props.revealDurationMs) * (1 - from)
+  const start = performance.now()
+  isRevealing.value = true
+  return new Promise((resolve) => {
+    const tick = (time: number): void => {
+      if (token !== loadToken) {
+        stopReveal()
+        resolve()
+        return
+      }
+      const progress = Math.min(1, (time - start) / duration)
+      revealProgress.value = from + (1 - from) * progress
+      if (progress < 1) {
+        revealAnimationFrame = requestAnimationFrame(tick)
+      }
+      else {
+        isRevealing.value = false
+        revealAnimationFrame = null
+        resolve()
+      }
+    }
+    revealAnimationFrame = requestAnimationFrame(tick)
+  })
+}
+
+async function scheduleAutoPlay(token: number): Promise<void> {
+  if (!props.autoPlay || !canRender.value || !isReady.value) {
+    return
+  }
+  if (isAnimating.value || isRevealing.value || showFinalImage.value) {
+    return
+  }
+  void startReveal(token)
+  stopRevealDelay()
+  // Let the compose pass soften the freshly-baked sharp frame first.
+  await waitForPrime(PRIME_FRAMES)
+  if (token !== loadToken) {
+    return
+  }
+  await runReveal(token)
+}
+
+/* ---------------- uniforms ---------------- */
+
+function updateUniforms(): void {
+  if (!composeUniforms || !displayUniforms) {
+    return
+  }
+  const useDepth = hasDepth.value
+  let modeValue = 0
+  switch (props.directionMode) {
+    case 'top-down': {
+      modeValue = 1
+      break
+    }
+    case 'left-right': {
+      modeValue = 2
+      break
+    }
+    case 'right-left': {
+      modeValue = 3
+      break
+    }
+    default: {
+      modeValue = 0
+      break
+    }
+  }
+  for (const target of [composeUniforms, displayUniforms]) {
+    target.uDirectionalDelay.value = props.directionalDelay
+    target.uDepthDelay.value = useDepth ? props.depthDelay : 0
+    target.uDepthCurvePower.value = Number.isFinite(props.depthEasePower) ? Math.max(0.01, props.depthEasePower) : 1
+    target.uDepthDetail.value = Number.isFinite(props.depthDetail) ? Math.max(0, props.depthDetail) : 1
+    target.uDirectionMode.value = modeValue
+    target.uInvertDepth.value = props.invertDepth ? 1 : 0
+    target.uUseDepth.value = useDepth ? 1 : 0
+    target.uBlurEasePower.value = Number.isFinite(props.blurEasePower) ? props.blurEasePower : 1
+  }
+  displayUniforms.uGrain.value = Number.isFinite(props.grain) ? Math.max(0, props.grain) : 0
+  updateProjection()
+}
+
+function playAnimation(): void {
+  if (!activeImageTexture || !activeDepthTexture || !ensureFeedback()) {
+    return
+  }
+  cancelTweens()
+  stopRevealDelay()
+  showFinalImage.value = false
+  startLoop()
+  void startReveal(loadToken)
+  setBlurFactor(0)
+  setFadeProgress(0)
+  void runReveal(loadToken)
+}
+
+/* ---------------- setup ---------------- */
+
+/**
+ * The feedback buffer must be float: each frame only mixes in ~`4 * delta` of the
+ * target colour, an increment an 8-bit target would quantise away, and the error
+ * compounds into banding.
+ */
+function createPingPong(threeModule: ThreeModule, target: WebGLRenderer, width: number, height: number): PingPong {
+  const gl = target.getContext()
+  const canRenderFloat = Boolean(
+    gl.getExtension('EXT_color_buffer_float') ?? gl.getExtension('EXT_color_buffer_half_float'),
+  )
+  const type = canRenderFloat ? threeModule.HalfFloatType : threeModule.UnsignedByteType
+
+  const options = {
+    minFilter: threeModule.LinearFilter,
+    magFilter: threeModule.LinearFilter,
+    format: threeModule.RGBAFormat,
+    type,
+    depthBuffer: false,
+    stencilBuffer: false,
+    generateMipmaps: false,
+  }
+  const a = new threeModule.WebGLRenderTarget(width, height, options)
+  const b = new threeModule.WebGLRenderTarget(width, height, options)
+  // The buffer carries gamma-encoded values untouched; tag it as such so
+  // three.js never inserts a transform.
+  a.texture.colorSpace = threeModule.NoColorSpace
+  b.texture.colorSpace = threeModule.NoColorSpace
+
+  const state: PingPong = {
+    read: a,
+    write: b,
+    swap() {
+      const previous = state.read
+      state.read = state.write
+      state.write = previous
+    },
+    setSize(nextWidth: number, nextHeight: number) {
+      if (a.width === nextWidth && a.height === nextHeight) {
+        return false
+      }
+      a.setSize(nextWidth, nextHeight)
+      b.setSize(nextWidth, nextHeight)
+      return true
+    },
+    dispose() {
+      a.dispose()
+      b.dispose()
+    },
+  }
+  return state
+}
+
+function initThree(): void {
+  const threeModule = three
+  if (!threeModule || !canvasHost.value) {
+    return
+  }
+  const host = wrapperRef.value ?? canvasHost.value
+  containerWidth.value = host.getBoundingClientRect().width
+
+  renderer = new threeModule.WebGLRenderer({ antialias: true, alpha: true })
+  // Gamma-space passthrough: textures are sampled without decode, so the
+  // output must not encode either — the canvas shows the bytes as loaded.
+  renderer.outputColorSpace = threeModule.LinearSRGBColorSpace
+  renderer.toneMapping = threeModule.NoToneMapping
+  // The playground also runs on low-memory Windows GPUs. Keep the same liora
+  // feedback pipeline, but cap its render-target ratio to 1x so the two float
+  // ping-pong buffers do not exhaust WebGL memory on high-DPI displays.
+  renderer.setPixelRatio(1)
+  // The canvas is attached by ensureFeedback, once the wrapper has a height.
+  // Attaching a zero-height canvas here would make it prop the wrapper open at
+  // 1px, and canvasSize() would accept that as a usable size.
+
+  camera = new threeModule.OrthographicCamera(-1, 1, 1, -1, 0.1, 10)
+  camera.position.z = 1
+
+  composeUniforms = {
+    uImage: { value: null },
+    uDepth: { value: null },
+    uFeedback: { value: null },
+    uFrameCount: { value: 0 },
+    uFadeProgress: { value: 0 },
+    uBlurFactor: { value: 0 },
+    uDelta: { value: 1 / 60 },
+    uCanvasAspect: { value: 1 },
+    uRectMin: { value: new threeModule.Vector2(0, 0) },
+    uRectSize: { value: new threeModule.Vector2(1, 1) },
+    uDirectionalDelay: { value: props.directionalDelay },
+    uDepthDelay: { value: props.depthDelay },
+    uDepthCurvePower: { value: 1 },
+    uDepthDetail: { value: props.depthDetail },
+    uDirectionMode: { value: 0 },
+    uInvertDepth: { value: props.invertDepth ? 1 : 0 },
+    uUseDepth: { value: 0 },
+    uBlurEasePower: { value: props.blurEasePower },
+  }
+  displayUniforms = {
+    uFeedback: { value: null },
+    uDepth: { value: null },
+    uFadeProgress: { value: 0 },
+    uBlurFactor: { value: 0 },
+    uMaxRadius: { value: DEFAULT_DISPLAY_RADIUS },
+    uGrain: { value: props.grain },
+    uPixel: { value: 0.001 },
+    uCanvasAspect: { value: 1 },
+    uRectMin: { value: new threeModule.Vector2(0, 0) },
+    uRectSize: { value: new threeModule.Vector2(1, 1) },
+    uDirectionalDelay: { value: props.directionalDelay },
+    uDepthDelay: { value: props.depthDelay },
+    uDepthCurvePower: { value: 1 },
+    uDepthDetail: { value: props.depthDetail },
+    uDirectionMode: { value: 0 },
+    uInvertDepth: { value: props.invertDepth ? 1 : 0 },
+    uUseDepth: { value: 0 },
+    uBlurEasePower: { value: props.blurEasePower },
+  }
+
+  composeScene = new threeModule.Scene()
+  composeMaterial = new threeModule.ShaderMaterial({
+    uniforms: composeUniforms,
+    vertexShader: fullscreenVertexShader,
+    fragmentShader: composeFragmentShader,
+  })
+  composeMesh = new threeModule.Mesh(new threeModule.PlaneGeometry(2, 2), composeMaterial)
+  composeMesh.frustumCulled = false
+  composeScene.add(composeMesh)
+
+  copyScene = new threeModule.Scene()
+  copyUniforms = { uTexture: { value: null } }
+  copyMaterial = new threeModule.ShaderMaterial({
+    uniforms: copyUniforms,
+    vertexShader: fullscreenVertexShader,
+    fragmentShader: copyFragmentShader,
+  })
+  copyMesh = new threeModule.Mesh(new threeModule.PlaneGeometry(2, 2), copyMaterial)
+  copyMesh.frustumCulled = false
+  copyScene.add(copyMesh)
+
+  depthBlurScene = new threeModule.Scene()
+  depthBlurUniforms = {
+    uTexture: { value: null },
+    uStep: { value: new threeModule.Vector2(0, 0) },
+    uSigma: { value: 1 },
+  }
+  depthBlurMaterial = new threeModule.ShaderMaterial({
+    uniforms: depthBlurUniforms,
+    vertexShader: fullscreenVertexShader,
+    fragmentShader: depthBlurFragmentShader,
+  })
+  depthBlurMesh = new threeModule.Mesh(new threeModule.PlaneGeometry(2, 2), depthBlurMaterial)
+  depthBlurMesh.frustumCulled = false
+  depthBlurScene.add(depthBlurMesh)
+
+  scene = new threeModule.Scene()
+  displayMaterial = new threeModule.ShaderMaterial({
+    uniforms: displayUniforms,
+    vertexShader,
+    fragmentShader: displayFragmentShader,
+    transparent: true,
+  })
+  mesh = new threeModule.Mesh(new threeModule.PlaneGeometry(2, 2), displayMaterial)
+  scene.add(mesh)
+
+  updateMeshScale()
+  ensureFeedback()
+
+  resizeObserver = new ResizeObserver(() => {
+    if (!renderer) {
+      return
+    }
+    const size = canvasSize()
+    if (!size) {
+      return
+    }
+    containerWidth.value = size.width
+
+    if (!feedback) {
+      // First usable size. Build the buffer now, and start the playback that
+      // loadTextures deferred because there was nothing to render into.
+      if (ensureFeedback() && isReady.value) {
+        startLoop()
+        void scheduleAutoPlay(loadToken)
+      }
+      return
+    }
+
+    renderer.setSize(size.width, size.height)
+    updateMeshScale()
+    resizeRenderTargets()
+    updateProjection()
+  })
+  resizeObserver.observe(wrapperRef.value ?? canvasHost.value)
+}
+
+defineExpose({
+  play: playAnimation,
+  isReady,
+  isLoading,
+  isAnimating,
+  isRevealing,
+  showFinalImage,
+})
+
+onMounted(async () => {
+  three = await import('three')
+  initThree()
+  if (canRender.value) {
+    void loadTextures()
+  }
+})
+
+onBeforeUnmount(() => {
+  stopLoop()
+  cancelTweens()
+  stopReveal()
+  stopRevealDelay()
+  resizeObserver?.disconnect()
+  if (renderer && canvasHost.value?.contains(renderer.domElement)) {
+    renderer.domElement.remove()
+  }
+  renderer?.dispose()
+  activeImageTexture?.dispose()
+  activeDepthTexture?.dispose()
+  if (depthBlurTargets) {
+    for (const target of depthBlurTargets) target.dispose()
+  }
+  depthBlurMaterial?.dispose()
+  depthBlurMesh?.geometry.dispose()
+  displayMaterial?.dispose()
+  mesh?.geometry.dispose()
+  composeMaterial?.dispose()
+  composeMesh?.geometry.dispose()
+  copyMaterial?.dispose()
+  copyMesh?.geometry.dispose()
+  feedback?.dispose()
+  feedback = null
+  composeMesh = null
+  composeMaterial = null
+  composeScene = null
+  copyMesh = null
+  copyMaterial = null
+  copyScene = null
+  copyUniforms = null
+})
+
+watch([imageUrl, depthUrl], () => {
+  if (!canRender.value) {
+    isReady.value = false
+    return
+  }
+  const sameScene = props.sceneKey != null && props.sceneKey === loadedSceneKey
+  if (sameScene && activeImageTexture) {
+    void upgradeTextures()
+    return
+  }
+  void loadTextures()
+})
+
+watch(
+  () => [
+    props.maxBlur,
+    props.blurEasePower,
+    props.directionalDelay,
+    props.depthDelay,
+    props.depthEasePower,
+    props.depthDetail,
+    props.grain,
+    props.directionMode,
+    props.invertDepth,
+    hasDepth.value,
+  ],
+  () => {
+    updateUniforms()
+  },
+)
+
+watch(
+  () => props.autoPlay,
+  (next) => {
+    if (!next) {
+      return
+    }
+    void scheduleAutoPlay(loadToken)
+  },
+)
+
+watch(
+  () => [props.imageWidth, props.imageHeight],
+  () => {
+    updateMeshScale()
+    updateProjection()
+  },
+)
+</script>
+
+<template>
+  <div ref="wrapperRef" class="depth-viewer-root relative rounded-none bg-default/60" :style="wrapperStyle">
+    <div
+      v-if="hasPlaceholder"
+      class="absolute inset-0 z-0 flex items-center justify-center"
+    >
+      <img
+        :src="placeholderUrl"
+        class="pointer-events-none h-full w-full select-none object-fill"
+        alt=""
+        aria-hidden="true"
+      >
+    </div>
+    <div class="absolute z-10" :style="[bleedStyle, revealMaskStyle]">
+      <div ref="canvasHost" class="h-full w-full" />
+    </div>
+    <img
+      v-if="showFinalImage"
+      :src="imageUrl"
+      class="pointer-events-none absolute inset-0 z-20 h-full w-full select-none object-contain"
+      alt=""
+      aria-hidden="true"
+    >
+    <div
+      v-if="showOverlay"
+      class="absolute inset-0 z-30 flex items-center justify-center text-sm text-muted"
+    >
+      {{ overlayText }}
+    </div>
+    <div v-if="focusBoxStyle" class="pointer-events-none absolute inset-0 z-40">
+      <div
+        class="absolute rounded-[2px] border-2 border-focus-point"
+        :style="focusBoxStyle"
+      />
+    </div>
+  </div>
+</template>
+
+<style scoped>
+.depth-viewer-root,
+.depth-viewer-root :deep(canvas),
+.depth-viewer-root :deep(img) {
+  image-rendering: smooth;
+  image-rendering: high-quality;
+}
+</style>

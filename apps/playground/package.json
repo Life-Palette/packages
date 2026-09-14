@@ -9,13 +9,17 @@
     "preview": "vite preview"
   },
   "dependencies": {
+    "@huggingface/transformers": "^4.2.0",
     "@life-palette/media": "workspace:*",
     "@life-palette/uploader": "workspace:*",
     "@life-palette/utils": "workspace:*",
+    "onnxruntime-common": "1.24.0-dev.20251116-b39e144322",
+    "three": "^0.184.0",
     "vue": "^3.5.42"
   },
   "devDependencies": {
     "@types/node": "^22.20.2",
+    "@types/three": "^0.184.1",
     "@vitejs/plugin-vue": "^6.0.8",
     "@vue/tsconfig": "^0.9.1",
     "typescript": "^7.0.2",

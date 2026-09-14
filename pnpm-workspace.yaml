@@ -1,7 +1,7 @@
 packages:
   - "packages/*"
   - "apps/*"
-nodeLinker: hoisted
+nodeLinker: isolated
 verifyDepsBeforeRun: false
 allowBuilds:
   esbuild: true

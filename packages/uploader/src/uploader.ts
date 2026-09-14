@@ -395,13 +395,13 @@ export function createOssUploader(config: UploaderConfig) {
     const { compress: shouldCompress = false, maxSizeMB, onProgress } = options;
     let processed = file;
 
-      if (shouldCompress && file.type.startsWith("image/")) {
+    if (shouldCompress && file.type.startsWith("image/")) {
       onProgress?.({ percent: 0, stage: "compress" });
-        processed = await compress(file, maxSizeMB);
-        // 某些浏览器/图片组合可能返回空压缩结果，不能继续向后端提交 file_size=0。
-        if (processed.size === 0) {
-          processed = file;
-        }
+      processed = await compress(file, maxSizeMB);
+      // 某些浏览器/图片组合可能返回空压缩结果，不能继续向后端提交 file_size=0。
+      if (processed.size === 0) {
+        processed = file;
+      }
       onProgress?.({ percent: 100, stage: "compress" });
     }
 

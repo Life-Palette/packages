@@ -5,6 +5,10 @@ dist
 *.log*
 *.env*
 
+# Local browser model files (downloaded separately; ~208 MB)
+.playwright-cli/
+apps/playground/public/models/
+
 # IDE
 .vscode/*
 !.vscode/settings.json
