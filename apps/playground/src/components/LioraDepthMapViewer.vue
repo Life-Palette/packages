@@ -8,334 +8,346 @@ import type {
   Vector2,
   WebGLRenderer,
   WebGLRenderTarget,
-} from 'three'
-import type { Ref } from 'vue'
-import { computed, onBeforeUnmount, onMounted, ref, watch } from 'vue'
+} from "three";
+import type { Ref } from "vue";
+import { computed, onBeforeUnmount, onMounted, ref, watch } from "vue";
 
 export interface DepthMapViewerExpose {
-  play: () => void
-  isReady: Ref<boolean>
-  isLoading: Ref<boolean>
-  isAnimating: Ref<boolean>
-  isRevealing: Ref<boolean>
+  isAnimating: Ref<boolean>;
+  isLoading: Ref<boolean>;
+  isReady: Ref<boolean>;
+  isRevealing: Ref<boolean>;
+  play: () => void;
 }
 
-type DirectionMode = 'bottom-up' | 'top-down' | 'left-right' | 'right-left'
+type DirectionMode = "bottom-up" | "top-down" | "left-right" | "right-left";
 
 interface FocusBox {
-  left: number
-  top: number
-  width: number
-  height: number
+  height: number;
+  left: number;
+  top: number;
+  width: number;
 }
 
-interface UniformValue<T> { value: T }
+interface UniformValue<T> {
+  value: T;
+}
 interface ComposeUniforms extends Record<string, UniformValue<unknown>> {
-  uImage: UniformValue<Texture | null>
-  uDepth: UniformValue<Texture | null>
-  uFeedback: UniformValue<Texture | null>
-  uFrameCount: UniformValue<number>
-  uFadeProgress: UniformValue<number>
-  uBlurFactor: UniformValue<number>
-  uDelta: UniformValue<number>
-  uCanvasAspect: UniformValue<number>
-  uRectMin: UniformValue<Vector2>
-  uRectSize: UniformValue<Vector2>
-  uDirectionalDelay: UniformValue<number>
-  uDepthDelay: UniformValue<number>
-  uDepthCurvePower: UniformValue<number>
-  uDepthDetail: UniformValue<number>
-  uDirectionMode: UniformValue<number>
-  uInvertDepth: UniformValue<number>
-  uUseDepth: UniformValue<number>
-  uBlurEasePower: UniformValue<number>
+  uBlurEasePower: UniformValue<number>;
+  uBlurFactor: UniformValue<number>;
+  uCanvasAspect: UniformValue<number>;
+  uDelta: UniformValue<number>;
+  uDepth: UniformValue<Texture | null>;
+  uDepthCurvePower: UniformValue<number>;
+  uDepthDelay: UniformValue<number>;
+  uDepthDetail: UniformValue<number>;
+  uDirectionalDelay: UniformValue<number>;
+  uDirectionMode: UniformValue<number>;
+  uFadeProgress: UniformValue<number>;
+  uFeedback: UniformValue<Texture | null>;
+  uFrameCount: UniformValue<number>;
+  uImage: UniformValue<Texture | null>;
+  uInvertDepth: UniformValue<number>;
+  uRectMin: UniformValue<Vector2>;
+  uRectSize: UniformValue<Vector2>;
+  uUseDepth: UniformValue<number>;
 }
 interface DisplayUniforms extends Record<string, UniformValue<unknown>> {
-  uFeedback: UniformValue<Texture | null>
-  uDepth: UniformValue<Texture | null>
-  uFadeProgress: UniformValue<number>
-  uBlurFactor: UniformValue<number>
-  uMaxRadius: UniformValue<number>
-  uGrain: UniformValue<number>
-  uPixel: UniformValue<number>
-  uCanvasAspect: UniformValue<number>
-  uRectMin: UniformValue<Vector2>
-  uRectSize: UniformValue<Vector2>
-  uDirectionalDelay: UniformValue<number>
-  uDepthDelay: UniformValue<number>
-  uDepthCurvePower: UniformValue<number>
-  uDepthDetail: UniformValue<number>
-  uDirectionMode: UniformValue<number>
-  uInvertDepth: UniformValue<number>
-  uUseDepth: UniformValue<number>
-  uBlurEasePower: UniformValue<number>
+  uBlurEasePower: UniformValue<number>;
+  uBlurFactor: UniformValue<number>;
+  uCanvasAspect: UniformValue<number>;
+  uDepth: UniformValue<Texture | null>;
+  uDepthCurvePower: UniformValue<number>;
+  uDepthDelay: UniformValue<number>;
+  uDepthDetail: UniformValue<number>;
+  uDirectionalDelay: UniformValue<number>;
+  uDirectionMode: UniformValue<number>;
+  uFadeProgress: UniformValue<number>;
+  uFeedback: UniformValue<Texture | null>;
+  uGrain: UniformValue<number>;
+  uInvertDepth: UniformValue<number>;
+  uMaxRadius: UniformValue<number>;
+  uPixel: UniformValue<number>;
+  uRectMin: UniformValue<Vector2>;
+  uRectSize: UniformValue<Vector2>;
+  uUseDepth: UniformValue<number>;
 }
 
 interface PingPong {
-  read: WebGLRenderTarget
-  write: WebGLRenderTarget
-  swap: () => void
-  setSize: (width: number, height: number) => boolean
-  dispose: () => void
+  dispose: () => void;
+  read: WebGLRenderTarget;
+  setSize: (width: number, height: number) => boolean;
+  swap: () => void;
+  write: WebGLRenderTarget;
 }
 
-type ThreeModule = typeof import('three')
+type ThreeModule = typeof import("three");
 
-const props = withDefaults(defineProps<{
-  imageUrl: string
-  depthUrl?: string
-  placeholderUrl?: string
-  placeholderAspectRatio?: number
-  imageWidth?: number
-  imageHeight?: number
-  revealDurationMs?: number
-  directionDurationSeconds?: number
-  depthDurationSeconds?: number
-  transitionBlurSeconds?: number
-  maxBlur?: number
-  blurEasePower?: number
-  directionalDelay?: number
-  depthDelay?: number
-  depthEasePower?: number
-  depthDetail?: number
-  grain?: number
-  directionMode?: DirectionMode
-  invertDepth?: boolean
-  autoPlay?: boolean
-  /** Loading/waiting text. Errors surface regardless. */
-  showStatusOverlay?: boolean
-  focusBox?: FocusBox | null
-  /**
-   * Identity of the pictured scene. When set, an imageUrl change under the same
-   * key is treated as a quality upgrade of the current picture — textures swap
-   * silently instead of replaying the blur-out/reveal transition.
-   */
-  sceneKey?: string | number | null
-}>(), {
-  depthUrl: '',
-  placeholderUrl: '',
-  revealDurationMs: 600,
-  directionDurationSeconds: 0,
-  depthDurationSeconds: 3,
-  transitionBlurSeconds: 0.8,
-  blurEasePower: 1,
-  directionalDelay: 0.5,
-  depthDelay: 0.2,
-  depthEasePower: 1,
-  depthDetail: 1,
-  grain: 0.05,
-  directionMode: 'bottom-up',
-  invertDepth: false,
-  autoPlay: true,
-  showStatusOverlay: true,
-  focusBox: null,
-  sceneKey: null,
-})
+const props = withDefaults(
+  defineProps<{
+    imageUrl: string;
+    depthUrl?: string;
+    placeholderUrl?: string;
+    placeholderAspectRatio?: number;
+    imageWidth?: number;
+    imageHeight?: number;
+    revealDurationMs?: number;
+    directionDurationSeconds?: number;
+    depthDurationSeconds?: number;
+    transitionBlurSeconds?: number;
+    maxBlur?: number;
+    blurEasePower?: number;
+    directionalDelay?: number;
+    depthDelay?: number;
+    depthEasePower?: number;
+    depthDetail?: number;
+    grain?: number;
+    directionMode?: DirectionMode;
+    invertDepth?: boolean;
+    autoPlay?: boolean;
+    /** Loading/waiting text. Errors surface regardless. */
+    showStatusOverlay?: boolean;
+    focusBox?: FocusBox | null;
+    /**
+     * Identity of the pictured scene. When set, an imageUrl change under the same
+     * key is treated as a quality upgrade of the current picture — textures swap
+     * silently instead of replaying the blur-out/reveal transition.
+     */
+    sceneKey?: string | number | null;
+  }>(),
+  {
+    autoPlay: true,
+    blurEasePower: 1,
+    depthDelay: 0.2,
+    depthDetail: 1,
+    depthDurationSeconds: 3,
+    depthEasePower: 1,
+    depthUrl: "",
+    directionalDelay: 0.5,
+    directionDurationSeconds: 0,
+    directionMode: "bottom-up",
+    focusBox: null,
+    grain: 0.05,
+    invertDepth: false,
+    placeholderUrl: "",
+    revealDurationMs: 600,
+    sceneKey: null,
+    showStatusOverlay: true,
+    transitionBlurSeconds: 0.8,
+  }
+);
 
 const t = (key: string): string => {
   const messages: Record<string, string> = {
-    'demoDepth.status.loading': '正在加载…',
-    'demoDepth.status.waiting': '等待图片',
-    'demoDepth.errors.loadFailed': '图片或深度图加载失败',
-  }
-  return messages[key] ?? key
-}
+    "demoDepth.errors.loadFailed": "图片或深度图加载失败",
+    "demoDepth.status.loading": "正在加载…",
+    "demoDepth.status.waiting": "等待图片",
+  };
+  return messages[key] ?? key;
+};
 
-const wrapperRef = ref<HTMLDivElement | null>(null)
-const canvasHost = ref<HTMLDivElement | null>(null)
-const isLoading = ref(false)
-const isReady = ref(false)
-const isAnimating = ref(false)
-const isRevealing = ref(false)
-const showFinalImage = ref(false)
-const revealProgress = ref(0)
-const statusMessage = ref('')
-let imageSize = { width: 1, height: 1 }
-const containerWidth = ref(0)
+const wrapperRef = ref<HTMLDivElement | null>(null);
+const canvasHost = ref<HTMLDivElement | null>(null);
+const isLoading = ref(false);
+const isReady = ref(false);
+const isAnimating = ref(false);
+const isRevealing = ref(false);
+const showFinalImage = ref(false);
+const revealProgress = ref(0);
+const statusMessage = ref("");
+let imageSize = { height: 1, width: 1 };
+const containerWidth = ref(0);
 
-const imageUrl = computed(() => props.imageUrl.trim())
-const depthUrl = computed(() => props.depthUrl?.trim() ?? '')
-const placeholderUrl = computed(() => props.placeholderUrl?.trim() ?? '')
-const hasPlaceholder = computed(() => placeholderUrl.value.length > 0)
-const hasDepth = computed(() => Boolean(depthUrl.value))
-const canRender = computed(() => Boolean(imageUrl.value))
-const revealSeconds = computed(() => Math.max(
-  0.2,
-  props.depthDurationSeconds,
-  props.directionDurationSeconds,
-))
+const imageUrl = computed(() => props.imageUrl.trim());
+const depthUrl = computed(() => props.depthUrl?.trim() ?? "");
+const placeholderUrl = computed(() => props.placeholderUrl?.trim() ?? "");
+const hasPlaceholder = computed(() => placeholderUrl.value.length > 0);
+const hasDepth = computed(() => Boolean(depthUrl.value));
+const canRender = computed(() => Boolean(imageUrl.value));
+const revealSeconds = computed(() =>
+  Math.max(0.2, props.depthDurationSeconds, props.directionDurationSeconds)
+);
 const imageAspectRatio = computed<number | undefined>(() => {
-  const width = props.imageWidth ?? 0
-  const height = props.imageHeight ?? 0
+  const width = props.imageWidth ?? 0;
+  const height = props.imageHeight ?? 0;
   if (width <= 0 || height <= 0) {
-    return
+    return;
   }
-  return width / height
-})
+  return width / height;
+});
 const displayAspectRatio = computed(() => {
-  const ratio = imageAspectRatio.value
+  const ratio = imageAspectRatio.value;
   if (ratio && Number.isFinite(ratio) && ratio > 0) {
-    return ratio
+    return ratio;
   }
   if (imageSize.width > 0 && imageSize.height > 0) {
-    return imageSize.width / imageSize.height
+    return imageSize.width / imageSize.height;
   }
-  return 1
-})
+  return 1;
+});
 const wrapperStyle = computed<Record<string, string> | undefined>(() => {
-  const ratio = imageAspectRatio.value ?? props.placeholderAspectRatio
-  if (!ratio || !Number.isFinite(ratio) || ratio <= 0) {
-    return
+  const ratio = imageAspectRatio.value ?? props.placeholderAspectRatio;
+  if (!(ratio && Number.isFinite(ratio)) || ratio <= 0) {
+    return;
   }
   return {
     aspectRatio: ratio.toString(),
-    height: 'auto',
-    width: '100%',
-  }
-})
+    height: "auto",
+    width: "100%",
+  };
+});
 /**
  * The canvas bleeds past the wrapper by this fraction per side so the frosted
  * edge can blur *outward* into the backdrop; inside its own box the bleed
  * would be clipped and the edge could only fade inward.
  */
-const BLEED = 0.08
-const BLEED_SCALE = 1 + 2 * BLEED
-const bleedStyle = { inset: `-${BLEED * 100}%` }
+const BLEED = 0.08;
+const BLEED_SCALE = 1 + 2 * BLEED;
+const bleedStyle = { inset: `-${BLEED * 100}%` };
 const showOverlay = computed(() => {
   if (statusMessage.value.length > 0) {
-    return true
+    return true;
   }
   if (!props.showStatusOverlay) {
-    return false
+    return false;
   }
-  if (!canRender.value && !hasPlaceholder.value) {
-    return true
+  if (!(canRender.value || hasPlaceholder.value)) {
+    return true;
   }
   if (isLoading.value && !hasPlaceholder.value) {
-    return true
+    return true;
   }
-  return false
-})
+  return false;
+});
 const overlayText = computed(() => {
   if (isLoading.value) {
-    return t('demoDepth.status.loading')
+    return t("demoDepth.status.loading");
   }
   if (statusMessage.value.length > 0) {
-    return statusMessage.value
+    return statusMessage.value;
   }
-  return t('demoDepth.status.waiting')
-})
+  return t("demoDepth.status.waiting");
+});
 
 const focusBoxStyle = computed<Record<string, string> | null>(() => {
-  const focusBox = props.focusBox
+  const focusBox = props.focusBox;
   if (!focusBox) {
-    return null
+    return null;
   }
-  const left = Math.max(0, Math.min(1, focusBox.left))
-  const top = Math.max(0, Math.min(1, focusBox.top))
-  const right = Math.max(0, Math.min(1, focusBox.left + focusBox.width))
-  const bottom = Math.max(0, Math.min(1, focusBox.top + focusBox.height))
-  const width = right - left
-  const height = bottom - top
-  if (!Number.isFinite(width) || !Number.isFinite(height) || width <= 0 || height <= 0) {
-    return null
+  const left = Math.max(0, Math.min(1, focusBox.left));
+  const top = Math.max(0, Math.min(1, focusBox.top));
+  const right = Math.max(0, Math.min(1, focusBox.left + focusBox.width));
+  const bottom = Math.max(0, Math.min(1, focusBox.top + focusBox.height));
+  const width = right - left;
+  const height = bottom - top;
+  if (
+    !(Number.isFinite(width) && Number.isFinite(height)) ||
+    width <= 0 ||
+    height <= 0
+  ) {
+    return null;
   }
   return {
+    height: `${(height * 100).toFixed(4)}%`,
     left: `${(left * 100).toFixed(4)}%`,
     top: `${(top * 100).toFixed(4)}%`,
     width: `${(width * 100).toFixed(4)}%`,
-    height: `${(height * 100).toFixed(4)}%`,
-  }
-})
+  };
+});
 
 const revealMaskStyle = computed<Record<string, string> | undefined>(() => {
   if (!hasPlaceholder.value) {
-    return
+    return;
   }
-  const rawProgress = isReady.value ? revealProgress.value : 0
-  const clamped = Math.min(1, Math.max(0, rawProgress))
+  const rawProgress = isReady.value ? revealProgress.value : 0;
+  const clamped = Math.min(1, Math.max(0, rawProgress));
   if (clamped <= 0) {
-    const emptyMask = 'linear-gradient(to top, rgba(0,0,0,0) 0%, rgba(0,0,0,0) 100%)'
+    const emptyMask =
+      "linear-gradient(to top, rgba(0,0,0,0) 0%, rgba(0,0,0,0) 100%)";
     return {
       maskImage: emptyMask,
+      maskRepeat: "no-repeat",
+      maskSize: "100% 100%",
       WebkitMaskImage: emptyMask,
-      maskRepeat: 'no-repeat',
-      WebkitMaskRepeat: 'no-repeat',
-      maskSize: '100% 100%',
-      WebkitMaskSize: '100% 100%',
-    }
+      WebkitMaskRepeat: "no-repeat",
+      WebkitMaskSize: "100% 100%",
+    };
   }
-  const eased = clamped * clamped * (3 - 2 * clamped)
-  const visible = (eased * 100).toFixed(3)
-  const feather = 64
-  const mid = Math.min(100, Number(visible) + feather * 0.5).toFixed(3)
-  const fade = Math.min(100, Number(visible) + feather).toFixed(3)
-  const mask = `linear-gradient(to top, rgba(0,0,0,1) 0%, rgba(0,0,0,1) ${visible}%, rgba(0,0,0,0.35) ${mid}%, rgba(0,0,0,0) ${fade}%, rgba(0,0,0,0) 100%)`
+  const eased = clamped * clamped * (3 - 2 * clamped);
+  const visible = (eased * 100).toFixed(3);
+  const feather = 64;
+  const mid = Math.min(100, Number(visible) + feather * 0.5).toFixed(3);
+  const fade = Math.min(100, Number(visible) + feather).toFixed(3);
+  const mask = `linear-gradient(to top, rgba(0,0,0,1) 0%, rgba(0,0,0,1) ${visible}%, rgba(0,0,0,0.35) ${mid}%, rgba(0,0,0,0) ${fade}%, rgba(0,0,0,0) 100%)`;
   return {
     maskImage: mask,
+    maskRepeat: "no-repeat",
+    maskSize: "100% 100%",
     WebkitMaskImage: mask,
-    maskRepeat: 'no-repeat',
-    WebkitMaskRepeat: 'no-repeat',
-    maskSize: '100% 100%',
-    WebkitMaskSize: '100% 100%',
-  }
-})
+    WebkitMaskRepeat: "no-repeat",
+    WebkitMaskSize: "100% 100%",
+  };
+});
 
-let three: ThreeModule | null = null
-let renderer: WebGLRenderer | null = null
-let scene: Scene | null = null
-let camera: OrthographicCamera | null = null
-let mesh: Mesh | null = null
-let displayMaterial: ShaderMaterial | null = null
-let displayUniforms: DisplayUniforms | null = null
-let composeScene: Scene | null = null
-let composeMesh: Mesh | null = null
-let composeMaterial: ShaderMaterial | null = null
-let copyScene: Scene | null = null
-let copyMesh: Mesh | null = null
-let depthBlurScene: Scene | null = null
-let depthBlurMaterial: ShaderMaterial | null = null
-let depthBlurMesh: Mesh | null = null
-let depthBlurUniforms: { uTexture: UniformValue<Texture | null>, uStep: UniformValue<Vector2>, uSigma: UniformValue<number> } | null = null
-let depthBlurTargets: [WebGLRenderTarget, WebGLRenderTarget] | null = null
-let copyMaterial: ShaderMaterial | null = null
-let copyUniforms: { uTexture: UniformValue<Texture | null> } | null = null
-let composeUniforms: ComposeUniforms | null = null
-let feedback: PingPong | null = null
-let activeImageTexture: Texture | null = null
-let activeDepthTexture: Texture | null = null
-let revealAnimationFrame: number | null = null
-let resizeObserver: ResizeObserver | null = null
-let loadToken = 0
-let upgradeToken = 0
-let loadedSceneKey: string | number | null = null
+let three: ThreeModule | null = null;
+let renderer: WebGLRenderer | null = null;
+let scene: Scene | null = null;
+let camera: OrthographicCamera | null = null;
+let mesh: Mesh | null = null;
+let displayMaterial: ShaderMaterial | null = null;
+let displayUniforms: DisplayUniforms | null = null;
+let composeScene: Scene | null = null;
+let composeMesh: Mesh | null = null;
+let composeMaterial: ShaderMaterial | null = null;
+let copyScene: Scene | null = null;
+let copyMesh: Mesh | null = null;
+let depthBlurScene: Scene | null = null;
+let depthBlurMaterial: ShaderMaterial | null = null;
+let depthBlurMesh: Mesh | null = null;
+let depthBlurUniforms: {
+  uTexture: UniformValue<Texture | null>;
+  uStep: UniformValue<Vector2>;
+  uSigma: UniformValue<number>;
+} | null = null;
+let depthBlurTargets: [WebGLRenderTarget, WebGLRenderTarget] | null = null;
+let copyMaterial: ShaderMaterial | null = null;
+let copyUniforms: { uTexture: UniformValue<Texture | null> } | null = null;
+let composeUniforms: ComposeUniforms | null = null;
+let feedback: PingPong | null = null;
+let activeImageTexture: Texture | null = null;
+let activeDepthTexture: Texture | null = null;
+let revealAnimationFrame: number | null = null;
+let resizeObserver: ResizeObserver | null = null;
+let loadToken = 0;
+let upgradeToken = 0;
+let loadedSceneKey: string | number | null = null;
 /* Texture loads can overlap (transition preload vs. same-scene upgrade); the
    sequence numbers make sure an older request never overwrites a newer one. */
-let textureRequestSeq = 0
-let appliedTextureSeq = 0
-let meshScaleX = 1
-let meshScaleY = 1
+let textureRequestSeq = 0;
+let appliedTextureSeq = 0;
+let meshScaleX = 1;
+let meshScaleY = 1;
 
 /**
  * The feedback buffer accumulates each frame's blur on top of the previous
  * frame's result, so the per-frame radius is deliberately tiny — the effective
  * radius grows exponentially across frames.
  */
-const COMPOSE_RADIUS = 0.011
-const DEFAULT_DISPLAY_RADIUS = 0.08
+const COMPOSE_RADIUS = 0.011;
+const DEFAULT_DISPLAY_RADIUS = 0.08;
 /** Frames the compose pass writes the source image straight through to prime both buffers. */
-const BAKE_FRAMES = 3
+const BAKE_FRAMES = 3;
 /**
  * Bake writes a *sharp* image into the feedback buffer, so on first load the
  * compose pass needs a few frames of iterated blur before the reveal begins —
  * otherwise it starts from an almost-sharp frame. Counted in frames rather than
  * milliseconds so a slow device still gets a soft start.
  */
-const PRIME_FRAMES = BAKE_FRAMES + 12
-const PRIME_TIMEOUT_MS = 500
+const PRIME_FRAMES = BAKE_FRAMES + 12;
+const PRIME_TIMEOUT_MS = 500;
 /** Extra time after the reveal finishes for the exponential mix to converge. */
-const SETTLE_MS = 400
-const MAX_DELTA = 1 / 30
+const SETTLE_MS = 400;
+const MAX_DELTA = 1 / 30;
 
 /**
  * Depth maps carry hard silhouettes, and a sparse per-pixel disk kernel turns
@@ -343,9 +355,9 @@ const MAX_DELTA = 1 / 30
  * blurred once per texture, with a dense separable Gaussian, into a small
  * render target — smooth silhouettes, single-tap lookups afterwards.
  */
-const DEPTH_BLUR_WIDTH = 256
+const DEPTH_BLUR_WIDTH = 256;
 /** Gaussian sigma as a fraction of image width. */
-const DEPTH_SOFTEN = 0.035
+const DEPTH_SOFTEN = 0.035;
 
 const depthBlurFragmentShader = `
 precision highp float;
@@ -368,7 +380,7 @@ void main() {
   }
   gl_FragColor = vec4(vec3(sum / total), 1.0);
 }
-`
+`;
 
 const vertexShader = `
   varying vec2 vUv;
@@ -376,7 +388,7 @@ const vertexShader = `
     vUv = uv;
     gl_Position = projectionMatrix * modelViewMatrix * vec4(position, 1.0);
   }
-`
+`;
 
 const fullscreenVertexShader = `
   varying vec2 vUv;
@@ -384,7 +396,7 @@ const fullscreenVertexShader = `
     vUv = uv;
     gl_Position = vec4(position.xy, 0.0, 1.0);
   }
-`
+`;
 
 /* Carries the feedback buffer across a resize instead of discarding it. */
 const copyFragmentShader = `
@@ -394,7 +406,7 @@ uniform sampler2D uTexture;
 void main() {
   gl_FragColor = vec4(texture2D(uTexture, vUv).rgb, 1.0);
 }
-`
+`;
 
 /**
  * Shared between the compose and display passes: both need to know, for a given
@@ -605,7 +617,7 @@ vec3 vogelBlur(sampler2D tex, vec2 screenUv, float radius, float sigma, float ro
   }
   return color / totalWeight;
 }
-`
+`;
 
 /**
  * Pass 1 — writes into the float ping-pong buffer.
@@ -665,7 +677,7 @@ void main() {
   float mixFactor = clamp(mix(FROST_ABSORB, 1.0, fade) * (1.0 - uBlurFactor) * MIX_MULTIPLIER * uDelta, 0.0, 1.0);
   gl_FragColor = vec4(mix(previous, target, mixFactor), 1.0);
 }
-`
+`;
 
 /**
  * Pass 2 — reads the feedback buffer, applies the wide bokeh, presents to canvas.
@@ -764,54 +776,53 @@ void main() {
   float grain = clamp(noiseFactor, 0.0, 1.0) - 0.5;
   gl_FragColor.rgb = clamp(gl_FragColor.rgb + grain * uGrain * blurAmount, 0.0, 1.0);
 }
-`
+`;
 
 /* ---------------- tweens ---------------- */
 
 interface Tween {
-  from: number
-  to: number
-  startedAt: number
-  durationMs: number
-  apply: (value: number) => void
-  resolve: () => void
-  token: number
+  apply: (value: number) => void;
+  durationMs: number;
+  from: number;
+  resolve: () => void;
+  startedAt: number;
+  to: number;
+  token: number;
 }
 
-let tweens: Tween[] = []
+let tweens: Tween[] = [];
 
 /**
  * cubic-bezier(0.42, 0, 1, 1) — the standard `ease-in`: the sweep gathers speed
  * instead of snapping off the line. No ease-out at the end — the shader's soft
  * band already lands the reveal gently.
  */
-function easeIn(t: number): number {
-  if (t <= 0) {
-    return 0
+function easeIn(progress: number): number {
+  if (progress <= 0) {
+    return 0;
   }
-  if (t >= 1) {
-    return 1
+  if (progress >= 1) {
+    return 1;
   }
-  const x1 = 0.42
-  const x2 = 1
+  const x1 = 0.42;
+  const x2 = 1;
   // Solve x(u) = t for u by bisection, then evaluate y(u).
-  let low = 0
-  let high = 1
-  let u = t
+  let low = 0;
+  let high = 1;
+  let u = progress;
   for (let i = 0; i < 20; i++) {
-    u = (low + high) / 2
-    const inv = 1 - u
-    const x = 3 * inv * inv * u * x1 + 3 * inv * u * u * x2 + u * u * u
-    if (x < t) {
-      low = u
-    }
-    else {
-      high = u
+    u = (low + high) / 2;
+    const inv = 1 - u;
+    const x = 3 * inv * inv * u * x1 + 3 * inv * u * u * x2 + u * u * u;
+    if (x < progress) {
+      low = u;
+    } else {
+      high = u;
     }
   }
-  const inv = 1 - u
+  const inv = 1 - u;
   // y1 = 0, y2 = 1
-  return 3 * inv * u * u + u * u * u
+  return 3 * inv * u * u + u * u * u;
 }
 
 function tween(
@@ -819,157 +830,168 @@ function tween(
   to: number,
   durationMs: number,
   apply: (value: number) => void,
-  token: number,
+  token: number
 ): Promise<void> {
-  apply(from)
+  apply(from);
   if (durationMs <= 0) {
-    apply(to)
-    return Promise.resolve()
+    apply(to);
+    return Promise.resolve();
   }
   return new Promise((resolve) => {
     tweens.push({
-      from,
-      to,
-      startedAt: performance.now(),
-      durationMs,
       apply,
+      durationMs,
+      from,
       resolve,
+      startedAt: performance.now(),
+      to,
       token,
-    })
-  })
+    });
+  });
 }
 
 function stepTweens(now: number): void {
   if (tweens.length === 0) {
-    return
+    return;
   }
-  const remaining: Tween[] = []
+  const remaining: Tween[] = [];
   for (const item of tweens) {
     if (item.token !== loadToken) {
-      item.resolve()
-      continue
+      item.resolve();
+      continue;
     }
-    const progress = Math.min(1, (now - item.startedAt) / item.durationMs)
-    item.apply(item.from + (item.to - item.from) * easeIn(progress))
+    const progress = Math.min(1, (now - item.startedAt) / item.durationMs);
+    item.apply(item.from + (item.to - item.from) * easeIn(progress));
     if (progress < 1) {
-      remaining.push(item)
-    }
-    else {
-      item.resolve()
+      remaining.push(item);
+    } else {
+      item.resolve();
     }
   }
-  tweens = remaining
+  tweens = remaining;
 }
 
 function cancelTweens(): void {
   for (const item of tweens) {
-    item.resolve()
+    item.resolve();
   }
-  tweens = []
-  resolvePrime()
+  tweens = [];
+  resolvePrime();
 }
 
 function sleep(ms: number): Promise<void> {
-  return new Promise(resolve => setTimeout(resolve, ms))
+  return new Promise((resolve) => setTimeout(resolve, ms));
 }
 
 /* ---------------- render loop ---------------- */
 
-let loopFrame: number | null = null
-let lastFrameTime = 0
-let frameCount = 0
+let loopFrame: number | null = null;
+let lastFrameTime = 0;
+let frameCount = 0;
 
 /* Resolves once the compose pass has run `frames` more iterations, or the
    deadline passes. Only meaningful while the render loop is running. */
-let primeTarget = 0
-let primeDeadline = 0
-let primeResolve: (() => void) | null = null
+let primeTarget = 0;
+let primeDeadline = 0;
+let primeResolve: (() => void) | null = null;
 
 function waitForPrime(frames: number): Promise<void> {
-  resolvePrime()
-  primeTarget = frameCount + frames
-  primeDeadline = performance.now() + PRIME_TIMEOUT_MS
+  resolvePrime();
+  primeTarget = frameCount + frames;
+  primeDeadline = performance.now() + PRIME_TIMEOUT_MS;
   return new Promise((resolve) => {
-    primeResolve = resolve
-  })
+    primeResolve = resolve;
+  });
 }
 
 function resolvePrime(): void {
   if (primeResolve) {
-    const resolve = primeResolve
-    primeResolve = null
-    resolve()
+    const resolve = primeResolve;
+    primeResolve = null;
+    resolve();
   }
 }
 
 function stepPrime(now: number): void {
   if (primeResolve && (frameCount >= primeTarget || now >= primeDeadline)) {
-    resolvePrime()
+    resolvePrime();
   }
 }
 
 function renderFrame(delta: number): void {
-  if (!renderer || !scene || !camera || !composeScene || !feedback || !composeUniforms || !displayUniforms) {
-    return
+  if (
+    !(
+      renderer &&
+      scene &&
+      camera &&
+      composeScene &&
+      feedback &&
+      composeUniforms &&
+      displayUniforms
+    )
+  ) {
+    return;
   }
-  composeUniforms.uDelta.value = delta
-  composeUniforms.uFrameCount.value = frameCount
-  composeUniforms.uFeedback.value = feedback.read.texture
+  composeUniforms.uDelta.value = delta;
+  composeUniforms.uFrameCount.value = frameCount;
+  composeUniforms.uFeedback.value = feedback.read.texture;
 
-  renderer.setRenderTarget(feedback.write)
-  renderer.render(composeScene, camera)
-  feedback.swap()
-  frameCount += 1
+  renderer.setRenderTarget(feedback.write);
+  renderer.render(composeScene, camera);
+  feedback.swap();
+  frameCount += 1;
 
-  displayUniforms.uFeedback.value = feedback.read.texture
-  renderer.setRenderTarget(null)
-  renderer.render(scene, camera)
+  displayUniforms.uFeedback.value = feedback.read.texture;
+  renderer.setRenderTarget(null);
+  renderer.render(scene, camera);
 }
 
 function loop(now: number): void {
-  loopFrame = requestAnimationFrame(loop)
-  const delta = lastFrameTime === 0 ? 1 / 60 : Math.min(MAX_DELTA, (now - lastFrameTime) / 1000)
-  lastFrameTime = now
-  stepTweens(now)
-  renderFrame(delta)
-  stepPrime(now)
+  loopFrame = requestAnimationFrame(loop);
+  const delta =
+    lastFrameTime === 0
+      ? 1 / 60
+      : Math.min(MAX_DELTA, (now - lastFrameTime) / 1000);
+  lastFrameTime = now;
+  stepTweens(now);
+  renderFrame(delta);
+  stepPrime(now);
 }
 
 function startLoop(): void {
   if (loopFrame !== null) {
-    return
+    return;
   }
-  lastFrameTime = 0
-  loopFrame = requestAnimationFrame(loop)
+  lastFrameTime = 0;
+  loopFrame = requestAnimationFrame(loop);
 }
 
 function stopLoop(): void {
   if (loopFrame !== null) {
-    cancelAnimationFrame(loopFrame)
-    loopFrame = null
+    cancelAnimationFrame(loopFrame);
+    loopFrame = null;
   }
 }
 
 /* ---------------- sizing ---------------- */
 
 function updateMeshScale(): void {
-  const host = wrapperRef.value ?? canvasHost.value
-  if (!mesh || !host) {
-    return
+  const host = wrapperRef.value ?? canvasHost.value;
+  if (!(mesh && host)) {
+    return;
   }
-  const { width, height } = host.getBoundingClientRect()
+  const { width, height } = host.getBoundingClientRect();
   if (width <= 0 || height <= 0) {
-    return
+    return;
   }
-  const containerAspect = width / height
-  const imageAspect = displayAspectRatio.value
-  meshScaleX = 1
-  meshScaleY = 1
+  const containerAspect = width / height;
+  const imageAspect = displayAspectRatio.value;
+  meshScaleX = 1;
+  meshScaleY = 1;
   if (imageAspect > containerAspect) {
-    meshScaleY = containerAspect / imageAspect
-  }
-  else {
-    meshScaleX = imageAspect / containerAspect
+    meshScaleY = containerAspect / imageAspect;
+  } else {
+    meshScaleX = imageAspect / containerAspect;
   }
 }
 
@@ -979,47 +1001,50 @@ function updateMeshScale(): void {
  * the image, its aspect ratio, or any tuning prop cannot interrupt a reveal.
  */
 function updateProjection(): void {
-  if (!renderer || !composeUniforms || !displayUniforms) {
-    return
+  if (!(renderer && composeUniforms && displayUniforms)) {
+    return;
   }
-  const host = wrapperRef.value ?? canvasHost.value
+  const host = wrapperRef.value ?? canvasHost.value;
   if (!host) {
-    return
+    return;
   }
-  const { width, height } = host.getBoundingClientRect()
+  const { width, height } = host.getBoundingClientRect();
   if (width <= 0 || height <= 0) {
-    return
+    return;
   }
   // Letterbox the image inside the wrapper, then place the wrapper inside the
   // bled canvas. Same aspect either way, since the bleed is proportional.
   for (const target of [composeUniforms, displayUniforms]) {
     target.uRectMin.value.set(
       (BLEED + (1 - meshScaleX) / 2) / BLEED_SCALE,
-      (BLEED + (1 - meshScaleY) / 2) / BLEED_SCALE,
-    )
-    target.uRectSize.value.set(meshScaleX / BLEED_SCALE, meshScaleY / BLEED_SCALE)
-    target.uCanvasAspect.value = width / height
+      (BLEED + (1 - meshScaleY) / 2) / BLEED_SCALE
+    );
+    target.uRectSize.value.set(
+      meshScaleX / BLEED_SCALE,
+      meshScaleY / BLEED_SCALE
+    );
+    target.uCanvasAspect.value = width / height;
   }
-  displayUniforms.uPixel.value = 1 / (height * BLEED_SCALE)
+  displayUniforms.uPixel.value = 1 / (height * BLEED_SCALE);
 
   // Per-sample radius, not the perceived one: the feedback loop compounds it
   // across frames, so it is several times wider than this by the time it lands.
-  const maxBlur = props.maxBlur
-  displayUniforms.uMaxRadius.value
-    = typeof maxBlur === 'number' && Number.isFinite(maxBlur) && maxBlur > 0
+  const maxBlur = props.maxBlur;
+  displayUniforms.uMaxRadius.value =
+    typeof maxBlur === "number" && Number.isFinite(maxBlur) && maxBlur > 0
       ? Math.min(0.2, maxBlur / (width * BLEED_SCALE))
-      : DEFAULT_DISPLAY_RADIUS
+      : DEFAULT_DISPLAY_RADIUS;
 }
 
-function canvasSize(): { width: number, height: number } | null {
-  const host = wrapperRef.value ?? canvasHost.value
+function canvasSize(): { width: number; height: number } | null {
+  const host = wrapperRef.value ?? canvasHost.value;
   if (!host) {
-    return null
+    return null;
   }
-  const { width, height } = host.getBoundingClientRect()
+  const { width, height } = host.getBoundingClientRect();
   return width > 0 && height > 0
-    ? { width: width * BLEED_SCALE, height: height * BLEED_SCALE }
-    : null
+    ? { height: height * BLEED_SCALE, width: width * BLEED_SCALE }
+    : null;
 }
 
 /**
@@ -1030,33 +1055,33 @@ function canvasSize(): { width: number, height: number } | null {
  */
 function ensureFeedback(): boolean {
   if (feedback) {
-    return true
+    return true;
   }
-  if (!three || !renderer || !canvasHost.value) {
-    return false
+  if (!(three && renderer && canvasHost.value)) {
+    return false;
   }
-  const size = canvasSize()
+  const size = canvasSize();
   if (!size) {
-    return false
+    return false;
   }
   // The canvas is absolutely positioned and bled past the wrapper, so it never
   // sizes the wrapper: that comes from the aspect ratio or the host.
-  renderer.setSize(size.width, size.height)
+  renderer.setSize(size.width, size.height);
   if (!renderer.domElement.isConnected) {
-    renderer.domElement.style.display = 'block'
-    canvasHost.value.append(renderer.domElement)
+    renderer.domElement.style.display = "block";
+    canvasHost.value.append(renderer.domElement);
   }
-  const pixelRatio = renderer.getPixelRatio()
+  const pixelRatio = renderer.getPixelRatio();
   feedback = createPingPong(
     three,
     renderer,
     Math.min(1600, Math.max(1, Math.round(size.width * pixelRatio))),
-    Math.min(1200, Math.max(1, Math.round(size.height * pixelRatio))),
-  )
-  frameCount = 0
-  updateMeshScale()
-  updateProjection()
-  return true
+    Math.min(1200, Math.max(1, Math.round(size.height * pixelRatio)))
+  );
+  frameCount = 0;
+  updateMeshScale();
+  updateProjection();
+  return true;
 }
 
 /**
@@ -1068,71 +1093,71 @@ function ensureFeedback(): boolean {
  * frameCount is left alone, so the compose pass never re-bakes.
  */
 function resizeRenderTargets(): void {
-  if (!three || !renderer || !feedback || !camera || !copyScene || !copyUniforms) {
-    return
+  if (!(three && renderer && feedback && camera && copyScene && copyUniforms)) {
+    return;
   }
-  const size = canvasSize()
+  const size = canvasSize();
   if (!size) {
-    return
+    return;
   }
-  const pixelRatio = renderer.getPixelRatio()
-  const width = Math.max(1, Math.round(size.width * pixelRatio))
-  const height = Math.max(1, Math.round(size.height * pixelRatio))
+  const pixelRatio = renderer.getPixelRatio();
+  const width = Math.max(1, Math.round(size.width * pixelRatio));
+  const height = Math.max(1, Math.round(size.height * pixelRatio));
   if (feedback.read.width === width && feedback.read.height === height) {
-    return
+    return;
   }
 
-  const next = createPingPong(three, renderer, width, height)
-  copyUniforms.uTexture.value = feedback.read.texture
+  const next = createPingPong(three, renderer, width, height);
+  copyUniforms.uTexture.value = feedback.read.texture;
   for (const target of [next.read, next.write]) {
-    renderer.setRenderTarget(target)
-    renderer.render(copyScene, camera)
+    renderer.setRenderTarget(target);
+    renderer.render(copyScene, camera);
   }
-  renderer.setRenderTarget(null)
-  feedback.dispose()
-  feedback = next
+  renderer.setRenderTarget(null);
+  feedback.dispose();
+  feedback = next;
 }
 
 /* ---------------- textures ---------------- */
 
 async function loadTexture(url: string): Promise<Texture> {
-  const threeModule = three
+  const threeModule = three;
   if (!threeModule) {
-    throw new Error('Three.js is not ready.')
+    throw new Error("Three.js is not ready.");
   }
-  const loader = new threeModule.TextureLoader()
+  const loader = new threeModule.TextureLoader();
   return await new Promise((resolve, reject) => {
     loader.load(
       url,
       (texture: Texture) => {
-        texture.generateMipmaps = false
-        texture.minFilter = threeModule.LinearFilter
-        texture.magFilter = threeModule.LinearFilter
+        texture.generateMipmaps = false;
+        texture.minFilter = threeModule.LinearFilter;
+        texture.magFilter = threeModule.LinearFilter;
         // Deliberately no sRGB decode: the whole pipeline blends encoded values.
         // Blurring in linear light blooms the highlights; blending in gamma
         // space gives the muted, frosted dissolve of the bfl.ai hero.
-        resolve(texture)
+        resolve(texture);
       },
       undefined,
-      () => reject(new Error(t('demoDepth.errors.loadFailed'))),
-    )
-  })
+      () => reject(new Error(t("demoDepth.errors.loadFailed")))
+    );
+  });
 }
 
 function createFallbackDepthTexture(threeModule: ThreeModule): Texture {
-  const data = new Uint8Array([128])
+  const data = new Uint8Array([128]);
   const texture = new threeModule.DataTexture(
     data,
     1,
     1,
     threeModule.RedFormat,
-    threeModule.UnsignedByteType,
-  )
-  texture.generateMipmaps = false
-  texture.minFilter = threeModule.LinearFilter
-  texture.magFilter = threeModule.LinearFilter
-  texture.needsUpdate = true
-  return texture
+    threeModule.UnsignedByteType
+  );
+  texture.generateMipmaps = false;
+  texture.minFilter = threeModule.LinearFilter;
+  texture.magFilter = threeModule.LinearFilter;
+  texture.needsUpdate = true;
+  return texture;
 }
 
 /**
@@ -1140,117 +1165,144 @@ function createFallbackDepthTexture(threeModule: ThreeModule): Texture {
  * DEPTH_BLUR_WIDTH. Returns the source untouched when there is no real depth.
  */
 function softenDepth(source: Texture): Texture {
-  const threeModule = three
-  if (!threeModule || !renderer || !depthBlurScene || !depthBlurUniforms || !hasDepth.value) {
-    return source
+  const threeModule = three;
+  if (
+    !(
+      threeModule &&
+      renderer &&
+      depthBlurScene &&
+      depthBlurUniforms &&
+      hasDepth.value
+    )
+  ) {
+    return source;
   }
-  const image = source.image as { width?: number, height?: number } | null | undefined
-  const aspect = (image?.width ?? 1) / Math.max(1, image?.height ?? 1)
-  const width = DEPTH_BLUR_WIDTH
-  const height = Math.max(1, Math.round(width / aspect))
-  if (!depthBlurTargets || depthBlurTargets[0].width !== width || depthBlurTargets[0].height !== height) {
+  const image = source.image as
+    | { width?: number; height?: number }
+    | null
+    | undefined;
+  const aspect = (image?.width ?? 1) / Math.max(1, image?.height ?? 1);
+  const width = DEPTH_BLUR_WIDTH;
+  const height = Math.max(1, Math.round(width / aspect));
+  if (
+    !depthBlurTargets ||
+    depthBlurTargets[0].width !== width ||
+    depthBlurTargets[0].height !== height
+  ) {
     if (depthBlurTargets) {
-      for (const target of depthBlurTargets) target.dispose()
+      for (const target of depthBlurTargets) {
+        target.dispose();
+      }
     }
     const options = {
-      minFilter: threeModule.LinearFilter,
-      magFilter: threeModule.LinearFilter,
-      format: threeModule.RGBAFormat,
       depthBuffer: false,
-      stencilBuffer: false,
+      format: threeModule.RGBAFormat,
       generateMipmaps: false,
-    }
+      magFilter: threeModule.LinearFilter,
+      minFilter: threeModule.LinearFilter,
+      stencilBuffer: false,
+    };
     depthBlurTargets = [
       new threeModule.WebGLRenderTarget(width, height, options),
       new threeModule.WebGLRenderTarget(width, height, options),
-    ]
+    ];
   }
-  const [horizontal, vertical] = depthBlurTargets
-  const uniforms = depthBlurUniforms
-  uniforms.uSigma.value = DEPTH_SOFTEN * width
-  uniforms.uTexture.value = source
-  uniforms.uStep.value.set(1 / width, 0)
-  renderer.setRenderTarget(horizontal)
-  renderer.render(depthBlurScene, camera!)
-  uniforms.uTexture.value = horizontal.texture
-  uniforms.uStep.value.set(0, 1 / height)
-  renderer.setRenderTarget(vertical)
-  renderer.render(depthBlurScene, camera!)
-  renderer.setRenderTarget(null)
-  uniforms.uTexture.value = null
-  return vertical.texture
+  const [horizontal, vertical] = depthBlurTargets;
+  if (!camera) {
+    return source;
+  }
+  const uniforms = depthBlurUniforms;
+  uniforms.uSigma.value = DEPTH_SOFTEN * width;
+  uniforms.uTexture.value = source;
+  uniforms.uStep.value.set(1 / width, 0);
+  renderer.setRenderTarget(horizontal);
+  renderer.render(depthBlurScene, camera);
+  uniforms.uTexture.value = horizontal.texture;
+  uniforms.uStep.value.set(0, 1 / height);
+  renderer.setRenderTarget(vertical);
+  renderer.render(depthBlurScene, camera);
+  renderer.setRenderTarget(null);
+  uniforms.uTexture.value = null;
+  return vertical.texture;
 }
 
-function applyTextures(imageTexture: Texture, depthTexture: Texture, seq: number): void {
-  if (!composeUniforms || !displayUniforms || seq <= appliedTextureSeq) {
-    imageTexture.dispose()
-    depthTexture.dispose()
-    return
+function applyTextures(
+  imageTexture: Texture,
+  depthTexture: Texture,
+  seq: number
+): void {
+  if (!(composeUniforms && displayUniforms) || seq <= appliedTextureSeq) {
+    imageTexture.dispose();
+    depthTexture.dispose();
+    return;
   }
-  appliedTextureSeq = seq
-  activeImageTexture?.dispose()
-  activeDepthTexture?.dispose()
-  activeImageTexture = imageTexture
-  activeDepthTexture = depthTexture
-  const softened = softenDepth(depthTexture)
-  composeUniforms.uImage.value = imageTexture
-  composeUniforms.uDepth.value = softened
-  displayUniforms.uDepth.value = softened
-  const image = imageTexture.image as { width?: number, height?: number } | null | undefined
+  appliedTextureSeq = seq;
+  activeImageTexture?.dispose();
+  activeDepthTexture?.dispose();
+  activeImageTexture = imageTexture;
+  activeDepthTexture = depthTexture;
+  const softened = softenDepth(depthTexture);
+  composeUniforms.uImage.value = imageTexture;
+  composeUniforms.uDepth.value = softened;
+  displayUniforms.uDepth.value = softened;
+  const image = imageTexture.image as
+    | { width?: number; height?: number }
+    | null
+    | undefined;
   imageSize = {
-    width: image?.width ?? 1,
     height: image?.height ?? 1,
-  }
-  updateMeshScale()
-  updateProjection()
+    width: image?.width ?? 1,
+  };
+  updateMeshScale();
+  updateProjection();
 }
 
 async function loadPair(): Promise<[Texture, Texture]> {
-  const threeModule = three
+  const threeModule = three;
   if (!threeModule) {
-    throw new Error('Three.js is not ready.')
+    throw new Error("Three.js is not ready.");
   }
   const [imageTexture, depthTexture] = await Promise.all([
     loadTexture(imageUrl.value),
     hasDepth.value
       ? loadTexture(depthUrl.value)
       : Promise.resolve(createFallbackDepthTexture(threeModule)),
-  ])
-  return [imageTexture, depthTexture]
+  ]);
+  return [imageTexture, depthTexture];
 }
 
 function setFadeProgress(value: number): void {
   if (composeUniforms) {
-    composeUniforms.uFadeProgress.value = value
+    composeUniforms.uFadeProgress.value = value;
   }
   if (displayUniforms) {
-    displayUniforms.uFadeProgress.value = value
+    displayUniforms.uFadeProgress.value = value;
   }
 }
 
 function setBlurFactor(value: number): void {
   if (composeUniforms) {
-    composeUniforms.uBlurFactor.value = value
+    composeUniforms.uBlurFactor.value = value;
   }
   if (displayUniforms) {
-    displayUniforms.uBlurFactor.value = value
+    displayUniforms.uBlurFactor.value = value;
   }
 }
 
 async function runReveal(token: number): Promise<void> {
-  isAnimating.value = true
-  await tween(0, 1, revealSeconds.value * 1000, setFadeProgress, token)
+  isAnimating.value = true;
+  await tween(0, 1, revealSeconds.value * 1000, setFadeProgress, token);
   if (token !== loadToken) {
-    return
+    return;
   }
   // Let the exponential mix converge before the sharp <img> takes over.
-  await sleep(SETTLE_MS)
+  await sleep(SETTLE_MS);
   if (token !== loadToken) {
-    return
+    return;
   }
-  isAnimating.value = false
-  showFinalImage.value = true
-  stopLoop()
+  isAnimating.value = false;
+  showFinalImage.value = true;
+  stopLoop();
 }
 
 /**
@@ -1259,30 +1311,36 @@ async function runReveal(token: number): Promise<void> {
  * pop-in and no stall.
  */
 async function runTransition(token: number): Promise<void> {
-  showFinalImage.value = false
+  showFinalImage.value = false;
   if (!ensureFeedback()) {
-    return
+    return;
   }
-  isAnimating.value = true
-  startLoop()
+  isAnimating.value = true;
+  startLoop();
   // The placeholder may still be covering the canvas if the first load never
   // got to play (e.g. autoPlay was false until the full-size image arrived).
-  void startReveal(token)
+  startReveal(token);
 
-  const seq = ++textureRequestSeq
-  const preload = loadPair()
-  const blurOut = tween(0, 1, props.transitionBlurSeconds * 1000, setBlurFactor, token)
-  const [textures] = await Promise.all([preload, blurOut])
+  const seq = ++textureRequestSeq;
+  const preload = loadPair();
+  const blurOut = tween(
+    0,
+    1,
+    props.transitionBlurSeconds * 1000,
+    setBlurFactor,
+    token
+  );
+  const [textures] = await Promise.all([preload, blurOut]);
   if (token !== loadToken) {
-    textures[0].dispose()
-    textures[1].dispose()
-    return
+    textures[0].dispose();
+    textures[1].dispose();
+    return;
   }
 
-  applyTextures(textures[0], textures[1], seq)
-  setBlurFactor(0)
-  setFadeProgress(0)
-  await runReveal(token)
+  applyTextures(textures[0], textures[1], seq);
+  setBlurFactor(0);
+  setFadeProgress(0);
+  await runReveal(token);
 }
 
 /**
@@ -1292,74 +1350,72 @@ async function runTransition(token: number): Promise<void> {
  * on its own. The reveal itself stays gated on autoPlay via scheduleAutoPlay.
  */
 async function upgradeTextures(): Promise<void> {
-  const token = ++upgradeToken
-  const sceneToken = loadToken
-  const seq = ++textureRequestSeq
+  const token = ++upgradeToken;
+  const sceneToken = loadToken;
+  const seq = ++textureRequestSeq;
   try {
-    const [imageTexture, depthTexture] = await loadPair()
+    const [imageTexture, depthTexture] = await loadPair();
     if (token !== upgradeToken || sceneToken !== loadToken) {
-      imageTexture.dispose()
-      depthTexture.dispose()
-      return
+      imageTexture.dispose();
+      depthTexture.dispose();
+      return;
     }
-    applyTextures(imageTexture, depthTexture, seq)
-  }
-  catch {
+    applyTextures(imageTexture, depthTexture, seq);
+  } catch {
     // Keep showing the current texture; the upgrade is best-effort.
   }
 }
 
 async function loadTextures(): Promise<void> {
-  if (!three || !composeUniforms || !canRender.value) {
-    return
+  if (!(three && composeUniforms && canRender.value)) {
+    return;
   }
-  cancelTweens()
-  stopReveal()
-  stopRevealDelay()
-  isAnimating.value = false
-  isReady.value = false
-  showFinalImage.value = false
+  cancelTweens();
+  stopReveal();
+  stopRevealDelay();
+  isAnimating.value = false;
+  isReady.value = false;
+  showFinalImage.value = false;
 
-  const token = ++loadToken
-  loadedSceneKey = props.sceneKey ?? null
-  const isFirstLoad = !activeImageTexture
-  isLoading.value = true
-  statusMessage.value = ''
+  const token = ++loadToken;
+  loadedSceneKey = props.sceneKey ?? null;
+  const isFirstLoad = !activeImageTexture;
+  isLoading.value = true;
+  statusMessage.value = "";
 
   try {
     if (isFirstLoad) {
-      const seq = ++textureRequestSeq
-      const [imageTexture, depthTexture] = await loadPair()
+      const seq = ++textureRequestSeq;
+      const [imageTexture, depthTexture] = await loadPair();
       if (token !== loadToken) {
-        imageTexture.dispose()
-        depthTexture.dispose()
-        return
+        imageTexture.dispose();
+        depthTexture.dispose();
+        return;
       }
-      applyTextures(imageTexture, depthTexture, seq)
-      setBlurFactor(0)
-      setFadeProgress(0)
-      updateUniforms()
-      isReady.value = true
-      isLoading.value = false
+      applyTextures(imageTexture, depthTexture, seq);
+      setBlurFactor(0);
+      setFadeProgress(0);
+      updateUniforms();
+      isReady.value = true;
+      isLoading.value = false;
       // If the canvas has no size yet, the ResizeObserver starts playback instead.
       if (ensureFeedback()) {
-        frameCount = 0
-        startLoop()
-        void scheduleAutoPlay(token)
+        frameCount = 0;
+        startLoop();
+        scheduleAutoPlay(token);
       }
-      return
+      return;
     }
 
-    updateUniforms()
-    isReady.value = true
-    isLoading.value = false
-    await runTransition(token)
-  }
-  catch (error) {
-    statusMessage.value = error instanceof Error ? error.message : t('demoDepth.errors.loadFailed')
-  }
-  finally {
-    isLoading.value = false
+    updateUniforms();
+    isReady.value = true;
+    isLoading.value = false;
+    await runTransition(token);
+  } catch (error) {
+    statusMessage.value =
+      error instanceof Error ? error.message : t("demoDepth.errors.loadFailed");
+  } finally {
+    isLoading.value = false;
   }
 }
 
@@ -1367,15 +1423,15 @@ async function loadTextures(): Promise<void> {
 
 function stopReveal(): void {
   if (revealAnimationFrame !== null) {
-    cancelAnimationFrame(revealAnimationFrame)
-    revealAnimationFrame = null
+    cancelAnimationFrame(revealAnimationFrame);
+    revealAnimationFrame = null;
   }
-  isRevealing.value = false
+  isRevealing.value = false;
 }
 
 /* The reveal no longer waits on a timer, only on primed frames. */
 function stopRevealDelay(): void {
-  resolvePrime()
+  resolvePrime();
 }
 
 /**
@@ -1387,109 +1443,116 @@ function stopRevealDelay(): void {
  * image mid-wipe does not snap the placeholder back over the canvas.
  */
 function startReveal(token: number): Promise<void> {
-  stopReveal()
+  stopReveal();
   if (!hasPlaceholder.value) {
-    revealProgress.value = 1
-    return Promise.resolve()
+    revealProgress.value = 1;
+    return Promise.resolve();
   }
-  const from = Math.min(1, Math.max(0, revealProgress.value))
+  const from = Math.min(1, Math.max(0, revealProgress.value));
   if (from >= 1) {
-    return Promise.resolve()
+    return Promise.resolve();
   }
-  const duration = Math.max(200, props.revealDurationMs) * (1 - from)
-  const start = performance.now()
-  isRevealing.value = true
+  const duration = Math.max(200, props.revealDurationMs) * (1 - from);
+  const start = performance.now();
+  isRevealing.value = true;
   return new Promise((resolve) => {
     const tick = (time: number): void => {
       if (token !== loadToken) {
-        stopReveal()
-        resolve()
-        return
+        stopReveal();
+        resolve();
+        return;
       }
-      const progress = Math.min(1, (time - start) / duration)
-      revealProgress.value = from + (1 - from) * progress
+      const progress = Math.min(1, (time - start) / duration);
+      revealProgress.value = from + (1 - from) * progress;
       if (progress < 1) {
-        revealAnimationFrame = requestAnimationFrame(tick)
+        revealAnimationFrame = requestAnimationFrame(tick);
+      } else {
+        isRevealing.value = false;
+        revealAnimationFrame = null;
+        resolve();
       }
-      else {
-        isRevealing.value = false
-        revealAnimationFrame = null
-        resolve()
-      }
-    }
-    revealAnimationFrame = requestAnimationFrame(tick)
-  })
+    };
+    revealAnimationFrame = requestAnimationFrame(tick);
+  });
 }
 
 async function scheduleAutoPlay(token: number): Promise<void> {
-  if (!props.autoPlay || !canRender.value || !isReady.value) {
-    return
+  if (!(props.autoPlay && canRender.value && isReady.value)) {
+    return;
   }
   if (isAnimating.value || isRevealing.value || showFinalImage.value) {
-    return
+    return;
   }
-  void startReveal(token)
-  stopRevealDelay()
+  startReveal(token);
+  stopRevealDelay();
   // Let the compose pass soften the freshly-baked sharp frame first.
-  await waitForPrime(PRIME_FRAMES)
+  await waitForPrime(PRIME_FRAMES);
   if (token !== loadToken) {
-    return
+    return;
   }
-  await runReveal(token)
+  await runReveal(token);
 }
 
 /* ---------------- uniforms ---------------- */
 
 function updateUniforms(): void {
-  if (!composeUniforms || !displayUniforms) {
-    return
+  if (!(composeUniforms && displayUniforms)) {
+    return;
   }
-  const useDepth = hasDepth.value
-  let modeValue = 0
+  const useDepth = hasDepth.value;
+  let modeValue = 0;
   switch (props.directionMode) {
-    case 'top-down': {
-      modeValue = 1
-      break
+    case "top-down": {
+      modeValue = 1;
+      break;
     }
-    case 'left-right': {
-      modeValue = 2
-      break
+    case "left-right": {
+      modeValue = 2;
+      break;
     }
-    case 'right-left': {
-      modeValue = 3
-      break
+    case "right-left": {
+      modeValue = 3;
+      break;
     }
     default: {
-      modeValue = 0
-      break
+      modeValue = 0;
+      break;
     }
   }
   for (const target of [composeUniforms, displayUniforms]) {
-    target.uDirectionalDelay.value = props.directionalDelay
-    target.uDepthDelay.value = useDepth ? props.depthDelay : 0
-    target.uDepthCurvePower.value = Number.isFinite(props.depthEasePower) ? Math.max(0.01, props.depthEasePower) : 1
-    target.uDepthDetail.value = Number.isFinite(props.depthDetail) ? Math.max(0, props.depthDetail) : 1
-    target.uDirectionMode.value = modeValue
-    target.uInvertDepth.value = props.invertDepth ? 1 : 0
-    target.uUseDepth.value = useDepth ? 1 : 0
-    target.uBlurEasePower.value = Number.isFinite(props.blurEasePower) ? props.blurEasePower : 1
+    target.uDirectionalDelay.value = props.directionalDelay;
+    target.uDepthDelay.value = useDepth ? props.depthDelay : 0;
+    target.uDepthCurvePower.value = Number.isFinite(props.depthEasePower)
+      ? Math.max(0.01, props.depthEasePower)
+      : 1;
+    target.uDepthDetail.value = Number.isFinite(props.depthDetail)
+      ? Math.max(0, props.depthDetail)
+      : 1;
+    target.uDirectionMode.value = modeValue;
+    target.uInvertDepth.value = props.invertDepth ? 1 : 0;
+    target.uUseDepth.value = useDepth ? 1 : 0;
+    target.uBlurEasePower.value = Number.isFinite(props.blurEasePower)
+      ? props.blurEasePower
+      : 1;
   }
-  displayUniforms.uGrain.value = Number.isFinite(props.grain) ? Math.max(0, props.grain) : 0
-  updateProjection()
+  displayUniforms.uGrain.value = Number.isFinite(props.grain)
+    ? Math.max(0, props.grain)
+    : 0;
+  updateProjection();
 }
 
 function playAnimation(): void {
-  if (!activeImageTexture || !activeDepthTexture || !ensureFeedback()) {
-    return
+  if (!(activeImageTexture && activeDepthTexture && ensureFeedback())) {
+    return;
   }
-  cancelTweens()
-  stopRevealDelay()
-  showFinalImage.value = false
-  startLoop()
-  void startReveal(loadToken)
-  setBlurFactor(0)
-  setFadeProgress(0)
-  void runReveal(loadToken)
+  cancelTweens();
+  stopRevealDelay();
+  showFinalImage.value = false;
+  startLoop();
+  startReveal(loadToken);
+  setBlurFactor(0);
+  setFadeProgress(0);
+  runReveal(loadToken);
 }
 
 /* ---------------- setup ---------------- */
@@ -1499,258 +1562,281 @@ function playAnimation(): void {
  * target colour, an increment an 8-bit target would quantise away, and the error
  * compounds into banding.
  */
-function createPingPong(threeModule: ThreeModule, target: WebGLRenderer, width: number, height: number): PingPong {
-  const gl = target.getContext()
+function createPingPong(
+  threeModule: ThreeModule,
+  target: WebGLRenderer,
+  width: number,
+  height: number
+): PingPong {
+  const gl = target.getContext();
   const canRenderFloat = Boolean(
-    gl.getExtension('EXT_color_buffer_float') ?? gl.getExtension('EXT_color_buffer_half_float'),
-  )
-  const type = canRenderFloat ? threeModule.HalfFloatType : threeModule.UnsignedByteType
+    gl.getExtension("EXT_color_buffer_float") ??
+      gl.getExtension("EXT_color_buffer_half_float")
+  );
+  const type = canRenderFloat
+    ? threeModule.HalfFloatType
+    : threeModule.UnsignedByteType;
 
   const options = {
-    minFilter: threeModule.LinearFilter,
-    magFilter: threeModule.LinearFilter,
-    format: threeModule.RGBAFormat,
-    type,
     depthBuffer: false,
-    stencilBuffer: false,
+    format: threeModule.RGBAFormat,
     generateMipmaps: false,
-  }
-  const a = new threeModule.WebGLRenderTarget(width, height, options)
-  const b = new threeModule.WebGLRenderTarget(width, height, options)
+    magFilter: threeModule.LinearFilter,
+    minFilter: threeModule.LinearFilter,
+    stencilBuffer: false,
+    type,
+  };
+  const a = new threeModule.WebGLRenderTarget(width, height, options);
+  const b = new threeModule.WebGLRenderTarget(width, height, options);
   // The buffer carries gamma-encoded values untouched; tag it as such so
   // three.js never inserts a transform.
-  a.texture.colorSpace = threeModule.NoColorSpace
-  b.texture.colorSpace = threeModule.NoColorSpace
+  a.texture.colorSpace = threeModule.NoColorSpace;
+  b.texture.colorSpace = threeModule.NoColorSpace;
 
   const state: PingPong = {
-    read: a,
-    write: b,
-    swap() {
-      const previous = state.read
-      state.read = state.write
-      state.write = previous
+    dispose() {
+      a.dispose();
+      b.dispose();
     },
+    read: a,
     setSize(nextWidth: number, nextHeight: number) {
       if (a.width === nextWidth && a.height === nextHeight) {
-        return false
+        return false;
       }
-      a.setSize(nextWidth, nextHeight)
-      b.setSize(nextWidth, nextHeight)
-      return true
+      a.setSize(nextWidth, nextHeight);
+      b.setSize(nextWidth, nextHeight);
+      return true;
     },
-    dispose() {
-      a.dispose()
-      b.dispose()
+    swap() {
+      const previous = state.read;
+      state.read = state.write;
+      state.write = previous;
     },
-  }
-  return state
+    write: b,
+  };
+  return state;
 }
 
 function initThree(): void {
-  const threeModule = three
-  if (!threeModule || !canvasHost.value) {
-    return
+  const threeModule = three;
+  if (!(threeModule && canvasHost.value)) {
+    return;
   }
-  const host = wrapperRef.value ?? canvasHost.value
-  containerWidth.value = host.getBoundingClientRect().width
+  const host = wrapperRef.value ?? canvasHost.value;
+  containerWidth.value = host.getBoundingClientRect().width;
 
-  renderer = new threeModule.WebGLRenderer({ antialias: true, alpha: true })
+  renderer = new threeModule.WebGLRenderer({ alpha: true, antialias: true });
   // Gamma-space passthrough: textures are sampled without decode, so the
   // output must not encode either — the canvas shows the bytes as loaded.
-  renderer.outputColorSpace = threeModule.LinearSRGBColorSpace
-  renderer.toneMapping = threeModule.NoToneMapping
+  renderer.outputColorSpace = threeModule.LinearSRGBColorSpace;
+  renderer.toneMapping = threeModule.NoToneMapping;
   // The playground also runs on low-memory Windows GPUs. Keep the same liora
   // feedback pipeline, but cap its render-target ratio to 1x so the two float
   // ping-pong buffers do not exhaust WebGL memory on high-DPI displays.
-  renderer.setPixelRatio(1)
+  renderer.setPixelRatio(1);
   // The canvas is attached by ensureFeedback, once the wrapper has a height.
   // Attaching a zero-height canvas here would make it prop the wrapper open at
   // 1px, and canvasSize() would accept that as a usable size.
 
-  camera = new threeModule.OrthographicCamera(-1, 1, 1, -1, 0.1, 10)
-  camera.position.z = 1
+  camera = new threeModule.OrthographicCamera(-1, 1, 1, -1, 0.1, 10);
+  camera.position.z = 1;
 
   composeUniforms = {
-    uImage: { value: null },
+    uBlurEasePower: { value: props.blurEasePower },
+    uBlurFactor: { value: 0 },
+    uCanvasAspect: { value: 1 },
+    uDelta: { value: 1 / 60 },
     uDepth: { value: null },
+    uDepthCurvePower: { value: 1 },
+    uDepthDelay: { value: props.depthDelay },
+    uDepthDetail: { value: props.depthDetail },
+    uDirectionalDelay: { value: props.directionalDelay },
+    uDirectionMode: { value: 0 },
+    uFadeProgress: { value: 0 },
     uFeedback: { value: null },
     uFrameCount: { value: 0 },
-    uFadeProgress: { value: 0 },
-    uBlurFactor: { value: 0 },
-    uDelta: { value: 1 / 60 },
-    uCanvasAspect: { value: 1 },
+    uImage: { value: null },
+    uInvertDepth: { value: props.invertDepth ? 1 : 0 },
     uRectMin: { value: new threeModule.Vector2(0, 0) },
     uRectSize: { value: new threeModule.Vector2(1, 1) },
-    uDirectionalDelay: { value: props.directionalDelay },
-    uDepthDelay: { value: props.depthDelay },
-    uDepthCurvePower: { value: 1 },
-    uDepthDetail: { value: props.depthDetail },
-    uDirectionMode: { value: 0 },
-    uInvertDepth: { value: props.invertDepth ? 1 : 0 },
     uUseDepth: { value: 0 },
-    uBlurEasePower: { value: props.blurEasePower },
-  }
+  };
   displayUniforms = {
-    uFeedback: { value: null },
-    uDepth: { value: null },
-    uFadeProgress: { value: 0 },
+    uBlurEasePower: { value: props.blurEasePower },
     uBlurFactor: { value: 0 },
-    uMaxRadius: { value: DEFAULT_DISPLAY_RADIUS },
-    uGrain: { value: props.grain },
-    uPixel: { value: 0.001 },
     uCanvasAspect: { value: 1 },
+    uDepth: { value: null },
+    uDepthCurvePower: { value: 1 },
+    uDepthDelay: { value: props.depthDelay },
+    uDepthDetail: { value: props.depthDetail },
+    uDirectionalDelay: { value: props.directionalDelay },
+    uDirectionMode: { value: 0 },
+    uFadeProgress: { value: 0 },
+    uFeedback: { value: null },
+    uGrain: { value: props.grain },
+    uInvertDepth: { value: props.invertDepth ? 1 : 0 },
+    uMaxRadius: { value: DEFAULT_DISPLAY_RADIUS },
+    uPixel: { value: 0.001 },
     uRectMin: { value: new threeModule.Vector2(0, 0) },
     uRectSize: { value: new threeModule.Vector2(1, 1) },
-    uDirectionalDelay: { value: props.directionalDelay },
-    uDepthDelay: { value: props.depthDelay },
-    uDepthCurvePower: { value: 1 },
-    uDepthDetail: { value: props.depthDetail },
-    uDirectionMode: { value: 0 },
-    uInvertDepth: { value: props.invertDepth ? 1 : 0 },
     uUseDepth: { value: 0 },
-    uBlurEasePower: { value: props.blurEasePower },
-  }
+  };
 
-  composeScene = new threeModule.Scene()
+  composeScene = new threeModule.Scene();
   composeMaterial = new threeModule.ShaderMaterial({
+    fragmentShader: composeFragmentShader,
     uniforms: composeUniforms,
     vertexShader: fullscreenVertexShader,
-    fragmentShader: composeFragmentShader,
-  })
-  composeMesh = new threeModule.Mesh(new threeModule.PlaneGeometry(2, 2), composeMaterial)
-  composeMesh.frustumCulled = false
-  composeScene.add(composeMesh)
+  });
+  composeMesh = new threeModule.Mesh(
+    new threeModule.PlaneGeometry(2, 2),
+    composeMaterial
+  );
+  composeMesh.frustumCulled = false;
+  composeScene.add(composeMesh);
 
-  copyScene = new threeModule.Scene()
-  copyUniforms = { uTexture: { value: null } }
+  copyScene = new threeModule.Scene();
+  copyUniforms = { uTexture: { value: null } };
   copyMaterial = new threeModule.ShaderMaterial({
+    fragmentShader: copyFragmentShader,
     uniforms: copyUniforms,
     vertexShader: fullscreenVertexShader,
-    fragmentShader: copyFragmentShader,
-  })
-  copyMesh = new threeModule.Mesh(new threeModule.PlaneGeometry(2, 2), copyMaterial)
-  copyMesh.frustumCulled = false
-  copyScene.add(copyMesh)
+  });
+  copyMesh = new threeModule.Mesh(
+    new threeModule.PlaneGeometry(2, 2),
+    copyMaterial
+  );
+  copyMesh.frustumCulled = false;
+  copyScene.add(copyMesh);
 
-  depthBlurScene = new threeModule.Scene()
+  depthBlurScene = new threeModule.Scene();
   depthBlurUniforms = {
-    uTexture: { value: null },
-    uStep: { value: new threeModule.Vector2(0, 0) },
     uSigma: { value: 1 },
-  }
+    uStep: { value: new threeModule.Vector2(0, 0) },
+    uTexture: { value: null },
+  };
   depthBlurMaterial = new threeModule.ShaderMaterial({
+    fragmentShader: depthBlurFragmentShader,
     uniforms: depthBlurUniforms,
     vertexShader: fullscreenVertexShader,
-    fragmentShader: depthBlurFragmentShader,
-  })
-  depthBlurMesh = new threeModule.Mesh(new threeModule.PlaneGeometry(2, 2), depthBlurMaterial)
-  depthBlurMesh.frustumCulled = false
-  depthBlurScene.add(depthBlurMesh)
+  });
+  depthBlurMesh = new threeModule.Mesh(
+    new threeModule.PlaneGeometry(2, 2),
+    depthBlurMaterial
+  );
+  depthBlurMesh.frustumCulled = false;
+  depthBlurScene.add(depthBlurMesh);
 
-  scene = new threeModule.Scene()
+  scene = new threeModule.Scene();
   displayMaterial = new threeModule.ShaderMaterial({
-    uniforms: displayUniforms,
-    vertexShader,
     fragmentShader: displayFragmentShader,
     transparent: true,
-  })
-  mesh = new threeModule.Mesh(new threeModule.PlaneGeometry(2, 2), displayMaterial)
-  scene.add(mesh)
+    uniforms: displayUniforms,
+    vertexShader,
+  });
+  mesh = new threeModule.Mesh(
+    new threeModule.PlaneGeometry(2, 2),
+    displayMaterial
+  );
+  scene.add(mesh);
 
-  updateMeshScale()
-  ensureFeedback()
+  updateMeshScale();
+  ensureFeedback();
 
   resizeObserver = new ResizeObserver(() => {
     if (!renderer) {
-      return
+      return;
     }
-    const size = canvasSize()
+    const size = canvasSize();
     if (!size) {
-      return
+      return;
     }
-    containerWidth.value = size.width
+    containerWidth.value = size.width;
 
     if (!feedback) {
       // First usable size. Build the buffer now, and start the playback that
       // loadTextures deferred because there was nothing to render into.
       if (ensureFeedback() && isReady.value) {
-        startLoop()
-        void scheduleAutoPlay(loadToken)
+        startLoop();
+        scheduleAutoPlay(loadToken);
       }
-      return
+      return;
     }
 
-    renderer.setSize(size.width, size.height)
-    updateMeshScale()
-    resizeRenderTargets()
-    updateProjection()
-  })
-  resizeObserver.observe(wrapperRef.value ?? canvasHost.value)
+    renderer.setSize(size.width, size.height);
+    updateMeshScale();
+    resizeRenderTargets();
+    updateProjection();
+  });
+  resizeObserver.observe(wrapperRef.value ?? canvasHost.value);
 }
 
 defineExpose({
-  play: playAnimation,
-  isReady,
-  isLoading,
   isAnimating,
+  isLoading,
+  isReady,
   isRevealing,
+  play: playAnimation,
   showFinalImage,
-})
+});
 
 onMounted(async () => {
-  three = await import('three')
-  initThree()
+  three = await import("three");
+  initThree();
   if (canRender.value) {
-    void loadTextures()
+    loadTextures();
   }
-})
+});
 
 onBeforeUnmount(() => {
-  stopLoop()
-  cancelTweens()
-  stopReveal()
-  stopRevealDelay()
-  resizeObserver?.disconnect()
+  stopLoop();
+  cancelTweens();
+  stopReveal();
+  stopRevealDelay();
+  resizeObserver?.disconnect();
   if (renderer && canvasHost.value?.contains(renderer.domElement)) {
-    renderer.domElement.remove()
+    renderer.domElement.remove();
   }
-  renderer?.dispose()
-  activeImageTexture?.dispose()
-  activeDepthTexture?.dispose()
+  renderer?.dispose();
+  activeImageTexture?.dispose();
+  activeDepthTexture?.dispose();
   if (depthBlurTargets) {
-    for (const target of depthBlurTargets) target.dispose()
+    for (const target of depthBlurTargets) {
+      target.dispose();
+    }
   }
-  depthBlurMaterial?.dispose()
-  depthBlurMesh?.geometry.dispose()
-  displayMaterial?.dispose()
-  mesh?.geometry.dispose()
-  composeMaterial?.dispose()
-  composeMesh?.geometry.dispose()
-  copyMaterial?.dispose()
-  copyMesh?.geometry.dispose()
-  feedback?.dispose()
-  feedback = null
-  composeMesh = null
-  composeMaterial = null
-  composeScene = null
-  copyMesh = null
-  copyMaterial = null
-  copyScene = null
-  copyUniforms = null
-})
+  depthBlurMaterial?.dispose();
+  depthBlurMesh?.geometry.dispose();
+  displayMaterial?.dispose();
+  mesh?.geometry.dispose();
+  composeMaterial?.dispose();
+  composeMesh?.geometry.dispose();
+  copyMaterial?.dispose();
+  copyMesh?.geometry.dispose();
+  feedback?.dispose();
+  feedback = null;
+  composeMesh = null;
+  composeMaterial = null;
+  composeScene = null;
+  copyMesh = null;
+  copyMaterial = null;
+  copyScene = null;
+  copyUniforms = null;
+});
 
 watch([imageUrl, depthUrl], () => {
   if (!canRender.value) {
-    isReady.value = false
-    return
+    isReady.value = false;
+    return;
   }
-  const sameScene = props.sceneKey != null && props.sceneKey === loadedSceneKey
+  const sameScene =
+    props.sceneKey !== null && props.sceneKey === loadedSceneKey;
   if (sameScene && activeImageTexture) {
-    void upgradeTextures()
-    return
+    upgradeTextures();
+    return;
   }
-  void loadTextures()
-})
+  loadTextures();
+});
 
 watch(
   () => [
@@ -1766,27 +1852,27 @@ watch(
     hasDepth.value,
   ],
   () => {
-    updateUniforms()
-  },
-)
+    updateUniforms();
+  }
+);
 
 watch(
   () => props.autoPlay,
   (next) => {
     if (!next) {
-      return
+      return;
     }
-    void scheduleAutoPlay(loadToken)
-  },
-)
+    scheduleAutoPlay(loadToken);
+  }
+);
 
 watch(
   () => [props.imageWidth, props.imageHeight],
   () => {
-    updateMeshScale()
-    updateProjection()
-  },
-)
+    updateMeshScale();
+    updateProjection();
+  }
+);
 </script>
 
 <template>
