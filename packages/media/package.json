@@ -32,7 +32,7 @@
     "README.md"
   ],
   "scripts": {
-    "build": "tsdown",
+    "build": "tsdown && node scripts/copy-arthash-wasm.mjs",
     "dev": "vitest dev",
     "prepublishOnly": "pnpm build && publint --strict",
     "test": "vitest run",
