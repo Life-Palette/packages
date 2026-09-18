@@ -1,5 +1,13 @@
 # @life-palette/uploader
 
+## 0.2.3
+
+### Patch Changes
+
+- [`9fe8f9e`](https://github.com/Life-Palette/packages/commit/9fe8f9edea8f935d6afc00bfadfdcaaf08c5e9e7) Thanks [@IceyWu](https://github.com/IceyWu)! - Include the arthash WebAssembly asset in the published media output and update the uploader release so browser consumers can use media analysis without bundler-specific workarounds.
+- Updated dependencies [[`9fe8f9e`](https://github.com/Life-Palette/packages/commit/9fe8f9edea8f935d6afc00bfadfdcaaf08c5e9e7)]:
+  - @life-palette/media@0.2.3
+
 ## 0.2.2
 
 ### Patch Changes
