@@ -342,7 +342,11 @@ function dateFrom(value: unknown): string | undefined {
     return value.toISOString();
   }
   if (typeof value === "string" && value.trim()) {
-    const date = new Date(value);
+    const normalized = value.trim().replace(
+      /^(\d{4}):(\d{2}):(\d{2})[ T](\d{2}:\d{2}:\d{2})(.*)$/,
+      "$1-$2-$3T$4$5"
+    );
+    const date = new Date(normalized);
     return Number.isNaN(date.valueOf()) ? value : date.toISOString();
   }
   return undefined;
@@ -374,7 +378,9 @@ async function readExif(file: Blob, includeRaw: boolean): Promise<ImageExif> {
       focal_length: stringFrom(
         valueFrom(parsed, "FocalLength", "focal_length")
       ),
-      iso: numberFrom(valueFrom(parsed, "ISO", "iso")),
+      iso: numberFrom(
+        valueFrom(parsed, "ISO", "PhotographicSensitivity", "iso")
+      ),
       lat: numberFrom(
         valueFrom(
           gps as RecordValue | undefined,
@@ -398,6 +404,7 @@ async function readExif(file: Blob, includeRaw: boolean): Promise<ImageExif> {
       taken_at: dateFrom(
         valueFrom(
           parsed,
+          "DateTimeOriginalISO",
           "DateTimeOriginal",
           "CreateDate",
           "CreationDate",

@@ -36,6 +36,35 @@ const result = await uploader.upload(file, {
 console.log(result.url);
 ```
 
+## Go API unified upload contract (V2)
+
+`createUploaderV2` is the provider-neutral client for the current Go API. It
+uses `POST /api/v1/uploads`, provider-issued presigned `PUT` URLs, and
+`POST /api/v1/uploads/{upload_id}/complete`. The legacy
+`createOssUploader` API above remains unchanged.
+
+```ts
+import { createUploaderV2 } from "@life-palette/uploader";
+
+const uploader = createUploaderV2({
+  apiBaseUrl: "https://api.example.com/api/v1",
+  getToken: () => localStorage.getItem("access_token"),
+});
+
+const result = await uploader.upload(file, {
+  isPrivate: false,
+  onProgress: ({ stage, percent }) => console.log(stage, percent),
+});
+
+// Cancel a resumable session when the user explicitly cancels it.
+await uploader.abort(uploadId);
+```
+
+V2 supports direct uploads, multipart uploads, resumable sessions, instant
+upload by MD5, per-part retries, and S3-compatible providers such as Amazon
+S3, Alibaba Cloud OSS, and Cloudflare R2. Media analysis and image
+compression are intentionally outside this API contract.
+
 ## API surface
 
 | Export | Description |
