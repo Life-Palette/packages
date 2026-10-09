@@ -1,6 +1,6 @@
 {
   "name": "@life-palette/uploader",
-  "version": "0.2.3",
+  "version": "1.0.0",
   "description": "Presigned direct and multipart uploader for Life Palette: resumable sessions, per-part retries, and completion. Browser-only, framework-agnostic.",
   "homepage": "https://github.com/Life-Palette/packages/tree/main/packages/uploader#readme",
   "bugs": "https://github.com/Life-Palette/packages/issues",
