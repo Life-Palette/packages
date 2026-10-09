@@ -389,16 +389,16 @@ button {
 .file-list-main > span {
   display: block;
   overflow: hidden;
-  color: #2563eb;
   text-overflow: ellipsis;
+  color: #2563eb;
   white-space: nowrap;
 }
 .file-list-main small {
   display: block;
   margin-top: 3px;
   overflow: hidden;
-  color: #8a8f98;
   text-overflow: ellipsis;
+  color: #8a8f98;
   white-space: nowrap;
 }
 .empty-state {

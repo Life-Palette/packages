@@ -342,10 +342,12 @@ function dateFrom(value: unknown): string | undefined {
     return value.toISOString();
   }
   if (typeof value === "string" && value.trim()) {
-    const normalized = value.trim().replace(
-      /^(\d{4}):(\d{2}):(\d{2})[ T](\d{2}:\d{2}:\d{2})(.*)$/,
-      "$1-$2-$3T$4$5"
-    );
+    const normalized = value
+      .trim()
+      .replace(
+        /^(\d{4}):(\d{2}):(\d{2})[ T](\d{2}:\d{2}:\d{2})(.*)$/,
+        "$1-$2-$3T$4$5"
+      );
     const date = new Date(normalized);
     return Number.isNaN(date.valueOf()) ? value : date.toISOString();
   }

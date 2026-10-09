@@ -1,5 +1,5 @@
 import { describe, expect, it, vi } from "vitest";
-import { createUploaderV2, type UploadV2Session } from "../src/uploader-v2";
+import { createOssUploader, type UploadSession } from "../src/uploader";
 
 function response(body: unknown, status = 200, headers?: HeadersInit) {
   return new Response(JSON.stringify(body), { headers, status });
@@ -11,25 +11,25 @@ function file() {
   });
 }
 
-describe("createUploaderV2", () => {
+describe("createOssUploader", () => {
   it("uploads a direct session and completes with the new contract", async () => {
     const calls: Array<{ url: string; init?: RequestInit }> = [];
     const fetchMock = vi.fn(async (url: string, init?: RequestInit) => {
-      calls.push({ url, init });
+      calls.push({ init, url });
       if (url.endsWith("/uploads")) {
-        const session: UploadV2Session = {
-          id: "upload-1",
-          mode: "direct",
-          key: "go_api/photo.jpg",
-          file_name: "photo.jpg",
+        const session: UploadSession = {
           content_type: "image/jpeg",
+          file_name: "photo.jpg",
+          id: "upload-1",
+          key: "go_api/photo.jpg",
+          mode: "direct",
           size: 3,
           total_parts: 1,
           upload: {
+            expires_at: 1,
+            key: "go_api/photo.jpg",
             method: "PUT",
             url: "https://s3.example.com/photo.jpg",
-            key: "go_api/photo.jpg",
-            expires_at: 1,
           },
         };
         return response({ code: 200, data: session });
@@ -41,34 +41,40 @@ describe("createUploaderV2", () => {
         return response({
           code: 200,
           data: {
-            uid: "file-1",
-            name: "photo.jpg",
             file_md5: "md5-1",
+            is_private: false,
+            name: "photo.jpg",
             size: 3,
             type: "image/jpeg",
+            uid: "file-1",
             url: "https://s3.example.com/photo.jpg",
-            is_private: false,
           },
         });
       }
       throw new Error(`Unexpected URL: ${url}`);
     });
 
-    const result = await createUploaderV2({
+    const result = await createOssUploader({
       apiBaseUrl: "https://api.example.com/api/v1",
-      getToken: () => "token",
       fetch: fetchMock as typeof fetch,
+      getToken: () => "token",
     }).upload(file(), { checksum: "md5-1" });
 
     expect(result.uid).toBe("file-1");
+    expect(new Headers(calls[0].init?.headers).get("Authorization")).toBe(
+      "Bearer token"
+    );
+    expect(new Headers(calls[1].init?.headers).has("Authorization")).toBe(
+      false
+    );
     expect(JSON.parse(String(calls[0].init?.body))).toEqual({
+      checksum: "md5-1",
       file_name: "photo.jpg",
       size: 3,
-      checksum: "md5-1",
     });
     expect(JSON.parse(String(calls[2].init?.body))).toEqual({
-      parts: [],
       is_private: false,
+      parts: [],
     });
   });
 
@@ -76,20 +82,28 @@ describe("createUploaderV2", () => {
     const uploadedParts: number[] = [];
     const fetchMock = vi.fn(async (url: string) => {
       if (url.endsWith("/uploads")) {
-        const session: UploadV2Session = {
-          id: "upload-2",
-          mode: "multipart",
-          key: "go_api/video.mov",
-          file_name: "video.mov",
+        const session: UploadSession = {
           content_type: "video/quicktime",
-          size: 6,
+          file_name: "video.mov",
+          id: "upload-2",
+          key: "go_api/video.mov",
+          mode: "multipart",
           part_size: 3,
-          total_parts: 2,
-          uploaded_parts: [{ part_number: 1, etag: "existing" }],
           parts: [
-            { part_number: 1, url: "https://s3.example.com/part-1", expires_at: 1 },
-            { part_number: 2, url: "https://s3.example.com/part-2", expires_at: 1 },
+            {
+              expires_at: 1,
+              part_number: 1,
+              url: "https://s3.example.com/part-1",
+            },
+            {
+              expires_at: 1,
+              part_number: 2,
+              url: "https://s3.example.com/part-2",
+            },
           ],
+          size: 6,
+          total_parts: 2,
+          uploaded_parts: [{ etag: "existing", part_number: 1 }],
         };
         return response({ data: session });
       }
@@ -98,15 +112,15 @@ describe("createUploaderV2", () => {
         return response({}, 200, { ETag: '"part-2-etag"' });
       }
       if (url.endsWith("/uploads/upload-2/complete")) {
-        return response({ data: { uid: "file-2", name: "video.mov" } });
+        return response({ data: { name: "video.mov", uid: "file-2" } });
       }
       throw new Error(`Unexpected URL: ${url}`);
     });
 
-    const result = await createUploaderV2({
+    const result = await createOssUploader({
       apiBaseUrl: "https://api.example.com/api/v1",
-      getToken: () => null,
       fetch: fetchMock as typeof fetch,
+      getToken: () => null,
       partConcurrency: 1,
     }).upload(new File([new Uint8Array(6)], "video.mov"), {
       checksum: "md5-2",
@@ -120,22 +134,22 @@ describe("createUploaderV2", () => {
     const fetchMock = vi.fn(async () =>
       response({
         data: {
-          id: "",
-          mode: "direct",
-          key: "go_api/photo.jpg",
-          file_name: "photo.jpg",
           content_type: "image/jpeg",
+          existing_file: { name: "photo.jpg", uid: "existing-1" },
+          file_name: "photo.jpg",
+          id: "",
+          key: "go_api/photo.jpg",
+          mode: "direct",
           size: 3,
           total_parts: 1,
-          existing_file: { uid: "existing-1", name: "photo.jpg" },
         },
       })
     );
 
-    const result = await createUploaderV2({
+    const result = await createOssUploader({
       apiBaseUrl: "https://api.example.com/api/v1",
-      getToken: () => null,
       fetch: fetchMock as typeof fetch,
+      getToken: () => null,
     }).upload(file(), { checksum: "same-md5" });
 
     expect(result.uid).toBe("existing-1");

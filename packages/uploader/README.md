@@ -1,14 +1,6 @@
 # @life-palette/uploader
 
-OSS uploader for the Life Palette stack: image compression → media analysis → multipart upload (concurrent, retryable per part) → server-side completion → live-photo pairing. Browser-only, framework-agnostic.
-
-## Highlights
-
-- **Concurrent multipart upload** — `partConcurrency` parts in flight at once.
-- **Per-part retry with backoff** — defaults to 3 attempts.
-- **Resumable** — `init` returns `uploaded_part_etags` so retries only re-upload what's missing.
-- **Live-photo pairing** — auto-associates `.jpg + .mov` pairs after a batch upload.
-- **Pure factory** — no Vue/React/Svelte dependency.
+Browser uploader for the Life Palette presigned upload contract. Direct and concurrent multipart uploads support resumable sessions, per-part retries, instant uploads by checksum, and cancellation.
 
 ## Install
 
@@ -19,60 +11,77 @@ pnpm add @life-palette/uploader @life-palette/media
 ## Usage
 
 ```ts
-import { createOssUploader } from "@life-palette/uploader";
+import { analyzeMedia } from "@life-palette/media";
+import { compressImage, createOssUploader } from "@life-palette/uploader";
 
 const uploader = createOssUploader({
   apiBaseUrl: "https://api.example.com/api/v1",
   getToken: () => localStorage.getItem("access_token"),
 });
 
-const file = await selectFile({ accept: "image/*,video/*" });
-if (!file) return;
-
-const result = await uploader.upload(file, {
-  compress: true,
-  onProgress: ({ stage, percent }) => console.log(stage, percent),
-});
-console.log(result.url);
-```
-
-## Go API unified upload contract (V2)
-
-`createUploaderV2` is the provider-neutral client for the current Go API. It
-uses `POST /api/v1/uploads`, provider-issued presigned `PUT` URLs, and
-`POST /api/v1/uploads/{upload_id}/complete`. The legacy
-`createOssUploader` API above remains unchanged.
-
-```ts
-import { createUploaderV2 } from "@life-palette/uploader";
-
-const uploader = createUploaderV2({
-  apiBaseUrl: "https://api.example.com/api/v1",
-  getToken: () => localStorage.getItem("access_token"),
-});
-
-const result = await uploader.upload(file, {
+// Optional compression: always analyze the bytes that will actually be uploaded.
+const processed = await compressImage(file, { maxSizeMB: 1 });
+const metadata = await analyzeMedia(processed, { colorCount: 5 });
+const result = await uploader.upload(processed, {
+  checksum: metadata.basic.md5,
+  metadata,
   isPrivate: false,
   onProgress: ({ stage, percent }) => console.log(stage, percent),
 });
-
-// Cancel a resumable session when the user explicitly cancels it.
+console.log(result.uid, result.url);
 await uploader.abort(uploadId);
 ```
 
-V2 supports direct uploads, multipart uploads, resumable sessions, instant
-upload by MD5, per-part retries, and S3-compatible providers such as Amazon
-S3, Alibaba Cloud OSS, and Cloudflare R2. Media analysis and image
-compression are intentionally outside this API contract.
+The upload sequence is `POST /uploads`, `PUT` to presigned URLs, and
+`POST /uploads/{upload_id}/complete`. The API base URL includes `/api/v1`.
+Initialization sends `file_name`, `size`, and `checksum`; completion sends
+`parts`, `is_private`, and optional browser-produced `metadata`.
+Server responses use the `data` envelope and files expose `uid`.
 
-## API surface
+Use `compressImage(file, { maxSizeMB, onProgress })` before analysis for optional
+JPEG, PNG and WebP compression. Formats are detected from the actual file bytes.
+Original EXIF blocks (including GPS, camera tags, unknown tags and MakerNotes)
+are restored byte-for-byte and verified after encoding. JPEG APP1/XMP blocks are
+also retained. EXIF is removed only from the temporary decoder input to avoid
+automatic rotation, then restored with the original orientation. Compression
+keeps dimensions and format; unexpected changes fail rather than losing EXIF.
+It preserves filenames, uses a worker when available, and retains the original
+if the output including restored EXIF increases size.
+The default target is 1 MB; it is a compression target rather than a guaranteed
+maximum. Unsupported formats, animated PNG/WebP, GIF, HEIC, AVIF, embedded
+motion photos and videos pass through unchanged. Other metadata types such as
+PNG text chunks and ICC profiles are not covered by the EXIF guarantee. Failures are reported
+instead of silently uploading an uncompressed image.
+
+Analysis and compression are outside the transport API. If neither `checksum`
+nor `metadata.basic.md5` is supplied, the media package is loaded lazily to hash
+the original file. Progress stages are `md5`, `initializing`, `uploading`, and
+`completing`, with stage-local percentages.
+
+## API
 
 | Export | Description |
 | --- | --- |
-| `createOssUploader(config)` | Factory returning `{ upload, uploadBatch, uploadToOSS, associateLivePhotos }` |
-| `fileParse`, `isVideo`, `isLivePhoto`, `getVideoThumbnailUrl`, `generateOssImageParams`, `parseFileName` | OSS URL/display helpers |
-| `detectLivePhotoPairs` | Pair JPG+MOV files by base name |
-| `PromisePool`, `withRetry` | Small async utilities |
+| `createOssUploader(config)` | Returns `{ upload, abort }` |
+| `compressImage`, `CompressionOptions` | Optional image compression before analysis |
+| `UploadedFile`, `UploadOptions`, `UploadProgress`, `UploaderConfig`, `UploadSession`, `UploadPart` | Current contract types |
+| `UploadError` | Error with optional HTTP status and details |
+| `detectLivePhotoPairs` | Match image/video names; callers persist the relationship |
+| File display helpers | `fileParse`, `isVideo`, `isLivePhoto`, `getVideoThumbnailUrl`, `generateOssImageParams`, `parseFileName` |
+| `PromisePool`, `withRetry` | Concurrency and retry helpers |
+
+`createUploaderV2`, legacy `/file/upload/*` requests, `uploadBatch`,
+`uploadToOSS`, `associateLivePhotos`, legacy types, and in-uploader compression
+options have been removed. No compatibility aliases are provided.
+
+## Validation
+
+```bash
+pnpm test
+pnpm test:browser
+pnpm build
+pnpm exec publint --strict
+```
 
 ## License
 

@@ -21,7 +21,11 @@ jobs:
       - run: pnpm install
       - run: pnpm lint
       - run: pnpm test
+      - run: pnpm --filter @life-palette/uploader exec playwright install --with-deps chromium
+      - run: pnpm --filter @life-palette/uploader test:browser
       - run: pnpm build
+      - run: pnpm --filter @life-palette/playground build
+      - run: pnpm --filter @life-palette/docs build
       - uses: codecov/codecov-action@v4
         with:
           token: ${{ secrets.CODECOV_TOKEN }}

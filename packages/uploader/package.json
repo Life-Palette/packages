@@ -1,7 +1,7 @@
 {
   "name": "@life-palette/uploader",
   "version": "0.2.3",
-  "description": "OSS uploader for Life Palette: compress → analyze → multipart upload (concurrent, retryable) → complete. Browser-only, framework-agnostic.",
+  "description": "Presigned direct and multipart uploader for Life Palette: resumable sessions, per-part retries, and completion. Browser-only, framework-agnostic.",
   "homepage": "https://github.com/Life-Palette/packages/tree/main/packages/uploader#readme",
   "bugs": "https://github.com/Life-Palette/packages/issues",
   "repository": {
@@ -35,26 +35,21 @@
     "build": "tsdown",
     "dev": "vitest dev",
     "prepublishOnly": "pnpm build && publint --strict",
-    "test": "vitest run"
+    "test": "vitest run",
+    "test:browser": "vitest run --config vitest.browser.config.ts"
   },
   "dependencies": {
-    "@life-palette/media": "workspace:*"
+    "@life-palette/media": "workspace:*",
+    "browser-image-compression": "^2.0.2"
   },
   "devDependencies": {
+    "@vitest/browser-playwright": "5.0.0",
     "@vitest/coverage-v8": "^5.0.0",
     "attw": "^1.0.0",
-    "browser-image-compression": "^2.0.2",
+    "playwright": "1.63.0",
     "publint": "^0.3.24",
     "tsdown": "^0.23.0",
     "vitest": "^5.0.0"
-  },
-  "peerDependencies": {
-    "browser-image-compression": "^2.0.2"
-  },
-  "peerDependenciesMeta": {
-    "browser-image-compression": {
-      "optional": true
-    }
   },
   "publishConfig": {
     "access": "public",
