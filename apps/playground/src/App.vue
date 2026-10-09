@@ -2,7 +2,7 @@
 import { analyzeMedia, type MediaAnalysisResult } from "@life-palette/media";
 import {
   compressImage,
-  createOssUploader,
+  createUploader,
   type UploadedFile,
 } from "@life-palette/uploader";
 import { computed, onBeforeUnmount, onMounted, ref, watch } from "vue";
@@ -212,7 +212,7 @@ const runUpload = async () => {
   analysis.value = null;
   const token = authToken.value.replace(/^Bearer\s+/i, "").trim();
   try {
-    const uploader = createOssUploader({
+    const uploader = createUploader({
       apiBaseUrl: apiBaseUrl.value.replace(/\/$/, ""),
       getToken: () => token || null,
     });

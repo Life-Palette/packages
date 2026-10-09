@@ -113,7 +113,7 @@ function getErrorMessage(body: ApiResponse<unknown>): string {
   return body.message || body.error || "Upload request failed";
 }
 
-export function createOssUploader(config: UploaderConfig) {
+export function createUploader(config: UploaderConfig) {
   const {
     apiBaseUrl,
     getToken,

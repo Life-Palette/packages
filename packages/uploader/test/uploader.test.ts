@@ -1,5 +1,5 @@
 import { describe, expect, it, vi } from "vitest";
-import { createOssUploader, type UploadSession } from "../src/uploader";
+import { createUploader, type UploadSession } from "../src/uploader";
 
 function response(body: unknown, status = 200, headers?: HeadersInit) {
   return new Response(JSON.stringify(body), { headers, status });
@@ -11,7 +11,7 @@ function file() {
   });
 }
 
-describe("createOssUploader", () => {
+describe("createUploader", () => {
   it("uploads a direct session and completes with the new contract", async () => {
     const calls: Array<{ url: string; init?: RequestInit }> = [];
     const fetchMock = vi.fn(async (url: string, init?: RequestInit) => {
@@ -54,7 +54,7 @@ describe("createOssUploader", () => {
       throw new Error(`Unexpected URL: ${url}`);
     });
 
-    const result = await createOssUploader({
+    const result = await createUploader({
       apiBaseUrl: "https://api.example.com/api/v1",
       fetch: fetchMock as typeof fetch,
       getToken: () => "token",
@@ -117,7 +117,7 @@ describe("createOssUploader", () => {
       throw new Error(`Unexpected URL: ${url}`);
     });
 
-    const result = await createOssUploader({
+    const result = await createUploader({
       apiBaseUrl: "https://api.example.com/api/v1",
       fetch: fetchMock as typeof fetch,
       getToken: () => null,
@@ -146,7 +146,7 @@ describe("createOssUploader", () => {
       })
     );
 
-    const result = await createOssUploader({
+    const result = await createUploader({
       apiBaseUrl: "https://api.example.com/api/v1",
       fetch: fetchMock as typeof fetch,
       getToken: () => null,

@@ -12,9 +12,9 @@ pnpm add @life-palette/uploader @life-palette/media
 
 ```ts
 import { analyzeMedia } from "@life-palette/media";
-import { compressImage, createOssUploader } from "@life-palette/uploader";
+import { compressImage, createUploader } from "@life-palette/uploader";
 
-const uploader = createOssUploader({
+const uploader = createUploader({
   apiBaseUrl: "https://api.example.com/api/v1",
   getToken: () => localStorage.getItem("access_token"),
 });
@@ -62,7 +62,7 @@ the original file. Progress stages are `md5`, `initializing`, `uploading`, and
 
 | Export | Description |
 | --- | --- |
-| `createOssUploader(config)` | Returns `{ upload, abort }` |
+| `createUploader(config)` | Returns `{ upload, abort }` |
 | `compressImage`, `CompressionOptions` | Optional image compression before analysis |
 | `UploadedFile`, `UploadOptions`, `UploadProgress`, `UploaderConfig`, `UploadSession`, `UploadPart` | Current contract types |
 | `UploadError` | Error with optional HTTP status and details |
