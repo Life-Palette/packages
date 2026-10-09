@@ -1,5 +1,11 @@
 # @life-palette/uploader
 
+## 2.0.0
+
+### Major Changes
+
+- [`8771298`](https://github.com/Life-Palette/packages/commit/8771298753995efe342383c08bcc1a317f63601b) Thanks [@IceyWu](https://github.com/IceyWu)! - Rename `createOssUploader` to `createUploader` to reflect provider-neutral presigned uploads. Remove the old factory export without a compatibility alias. Upload behavior and EXIF-preserving compression are unchanged.
+
 ## 1.0.0
 
 ### Major Changes
