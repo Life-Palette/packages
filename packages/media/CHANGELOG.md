@@ -1,5 +1,12 @@
 # @life-palette/media
 
+## 0.2.4
+
+### Patch Changes
+
+- [`03ec375`](https://github.com/Life-Palette/packages/commit/03ec375bcd0c59af37e5aefae20353cdc4b8b53e) Thanks [@IceyWu](https://github.com/IceyWu)! - Normalize ISO sensitivity from `PhotographicSensitivity` and `ISOSpeedRatings` EXIF tags.
+  Update the uploader's media dependency so uploaded image metadata includes the normalized camera ISO value.
+
 ## 0.2.3
 
 ### Patch Changes
