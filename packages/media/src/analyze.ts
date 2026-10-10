@@ -7,6 +7,7 @@
 import { codec, encode as encodeArthash } from "arthash";
 import { encode as encodeBlurhash } from "blurhash";
 import initMetaprobe, { extractMetaFastSized } from "metaprobe";
+import { readExifIso } from "./exif-fields";
 import { hashBlob } from "./hash";
 import {
   loadMediaInfoVideoMetadata,
@@ -380,9 +381,7 @@ async function readExif(file: Blob, includeRaw: boolean): Promise<ImageExif> {
       focal_length: stringFrom(
         valueFrom(parsed, "FocalLength", "focal_length")
       ),
-      iso: numberFrom(
-        valueFrom(parsed, "ISO", "PhotographicSensitivity", "iso")
-      ),
+      iso: readExifIso(parsed),
       lat: numberFrom(
         valueFrom(
           gps as RecordValue | undefined,
