@@ -21,13 +21,17 @@ jobs:
           node-version: 24
           cache: "pnpm"
           registry-url: "https://registry.npmjs.org"
-      - run: pnpm install
+      - run: pnpm install --frozen-lockfile
       - run: pnpm lint
       - run: pnpm test
       - run: pnpm --filter @life-palette/uploader exec playwright install --with-deps chromium
       - run: pnpm --filter @life-palette/uploader test:browser
       - run: pnpm build
-      - run: pnpm --filter @life-palette/playground build
+      - run: pnpm --filter @life-palette/playground-web build
+      - run: pnpm --filter @life-palette/uploader-uniapp typecheck
+      - run: pnpm --filter @life-palette/playground-uniapp type-check
+      - run: pnpm --filter @life-palette/playground-uniapp build:h5
+      - run: pnpm --filter @life-palette/playground-uniapp build:mp-weixin
       - run: pnpm --filter @life-palette/docs build
 
       - name: Create Release Pull Request or Publish

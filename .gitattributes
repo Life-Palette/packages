@@ -1,0 +1,13 @@
+# Match Biome's LF output on Windows and in CI.
+* text=auto
+*.ts text eol=lf
+*.js text eol=lf
+*.mjs text eol=lf
+*.json text eol=lf
+*.jsonc text eol=lf
+*.vue text eol=lf
+*.html text eol=lf
+*.css text eol=lf
+*.scss text eol=lf
+*.yaml text eol=lf
+*.yml text eol=lf

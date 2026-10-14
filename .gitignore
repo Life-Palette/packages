@@ -8,7 +8,7 @@ dist
 
 # Local browser model files (downloaded separately; ~208 MB)
 .playwright-cli/
-apps/playground/public/models/
+apps/playground/web/public/models/
 
 # IDE
 .vscode/*
@@ -23,3 +23,7 @@ playground/node_modules
 docs/.vitepress/dist
 docs/.vitepress/cache
 docs/node_modules
+
+# uni-app CLI outputs
+apps/playground/uniapp/dist/
+apps/playground/uniapp/unpackage/

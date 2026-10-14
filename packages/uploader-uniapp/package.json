@@ -1,0 +1,114 @@
+{
+  "name": "@life-palette/uploader-uniapp",
+  "version": "0.1.0",
+  "description": "Native uni-app direct and multipart PUT uploads, file selection and permission helpers. No media processing.",
+  "homepage": "https://github.com/Life-Palette/packages/tree/main/packages/uploader-uniapp#readme",
+  "bugs": "https://github.com/Life-Palette/packages/issues",
+  "repository": {
+    "type": "git",
+    "url": "https://github.com/Life-Palette/packages",
+    "directory": "packages/uploader-uniapp"
+  },
+  "license": "MIT",
+  "sideEffects": false,
+  "type": "module",
+  "exports": {
+    ".": {
+      "import": {
+        "types": "./dist/index.d.mts",
+        "default": "./dist/index.mjs"
+      },
+      "require": {
+        "types": "./dist/index.d.cts",
+        "default": "./dist/index.cjs"
+      }
+    },
+    "./file": {
+      "import": {
+        "types": "./dist/file.d.mts",
+        "default": "./dist/file.mjs"
+      },
+      "require": {
+        "types": "./dist/file.d.cts",
+        "default": "./dist/file.cjs"
+      }
+    },
+    "./selection": {
+      "import": {
+        "types": "./dist/picker.d.mts",
+        "default": "./dist/picker.mjs"
+      },
+      "require": {
+        "types": "./dist/picker.d.cts",
+        "default": "./dist/picker.cjs"
+      }
+    },
+    "./permissions": {
+      "import": {
+        "types": "./dist/picker.d.mts",
+        "default": "./dist/picker.mjs"
+      },
+      "require": {
+        "types": "./dist/picker.d.cts",
+        "default": "./dist/picker.cjs"
+      }
+    },
+    "./form-upload": {
+      "import": {
+        "types": "./dist/transport.d.mts",
+        "default": "./dist/transport.mjs"
+      },
+      "require": {
+        "types": "./dist/transport.d.cts",
+        "default": "./dist/transport.cjs"
+      }
+    },
+    "./picker": {
+      "import": {
+        "types": "./dist/picker.d.mts",
+        "default": "./dist/picker.mjs"
+      },
+      "require": {
+        "types": "./dist/picker.d.cts",
+        "default": "./dist/picker.cjs"
+      }
+    },
+    "./transport": {
+      "import": {
+        "types": "./dist/transport.d.mts",
+        "default": "./dist/transport.mjs"
+      },
+      "require": {
+        "types": "./dist/transport.d.cts",
+        "default": "./dist/transport.cjs"
+      }
+    }
+  },
+  "main": "./dist/index.cjs",
+  "module": "./dist/index.mjs",
+  "types": "./dist/index.d.mts",
+  "files": [
+    "dist",
+    "README.md"
+  ],
+  "scripts": {
+    "build": "tsdown",
+    "prepublishOnly": "pnpm build && publint --strict",
+    "test": "vitest run",
+    "typecheck": "tsc --noEmit"
+  },
+  "dependencies": {
+    "spark-md5": "^3.0.2"
+  },
+  "devDependencies": {
+    "@types/spark-md5": "^3.0.5",
+    "publint": "^0.3.24",
+    "tsdown": "^0.23.0",
+    "typescript": "^5.9.3",
+    "vitest": "^5.0.0"
+  },
+  "publishConfig": {
+    "access": "public",
+    "registry": "https://registry.npmjs.org/"
+  }
+}

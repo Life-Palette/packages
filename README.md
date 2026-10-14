@@ -13,7 +13,8 @@
 | --- | --- |
 | [@life-palette/utils](./packages/utils) | 纯函数工具集，零运行时依赖 |
 | [@life-palette/media](./packages/media) | 浏览器端媒体分析 |
-| [@life-palette/uploader](./packages/uploader) | OSS 上传器（并发分片 + 重试） |
+| [@life-palette/uploader](./packages/uploader) | Web OSS 上传器（并发分片 + 重试） |
+| [@life-palette/uploader-uniapp](./packages/uploader-uniapp) | uni-app 原生表单上传、预签名直传与分片上传 |
 
 ## 开发
 
@@ -30,8 +31,12 @@ pnpm test
 # 代码检查
 pnpm lint
 
-# 启动 playground
-pnpm play
+# 启动 Web playground
+pnpm play:web
+
+# 启动 uni-app H5 / 微信小程序 playground
+pnpm play:uniapp
+pnpm play:uniapp:weixin
 
 # 启动文档站
 pnpm docs:dev
@@ -53,12 +58,15 @@ pnpm release         # build + publish
 
 ```
 apps/
-├── playground/   # Vite + Vue 3 演示应用
+├── playground/
+│   ├── web/      # 原 Web 演示应用
+│   └── uniapp/   # DCloud 官方 Vue 3 + Vite + TS CLI 模板
 └── docs/         # Astro Starlight 文档站
 packages/
 ├── utils/        # @life-palette/utils 纯函数
 ├── media/        # @life-palette/media 媒体分析
-└── uploader/     # @life-palette/uploader OSS 上传
+├── uploader/     # @life-palette/uploader Web OSS 上传
+└── uploader-uniapp/ # @life-palette/uploader-uniapp
 ```
 
 ## License

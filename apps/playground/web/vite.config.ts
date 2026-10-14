@@ -3,7 +3,7 @@ import vue from "@vitejs/plugin-vue";
 import { defineConfig } from "vite";
 
 const pkg = (name: string) =>
-  resolve(import.meta.dirname, `../../packages/${name}/src/index.ts`);
+  resolve(import.meta.dirname, `../../../packages/${name}/src/index.ts`);
 
 // https://vite.dev/config/
 export default defineConfig({

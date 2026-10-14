@@ -5,9 +5,9 @@
     "types": ["vite/client"],
     "baseUrl": ".",
     "paths": {
-      "@life-palette/utils": ["../../packages/utils/src/index.ts"],
-      "@life-palette/media": ["../../packages/media/src/index.ts"],
-      "@life-palette/uploader": ["../../packages/uploader/src/index.ts"]
+      "@life-palette/utils": ["../../../packages/utils/src/index.ts"],
+      "@life-palette/media": ["../../../packages/media/src/index.ts"],
+      "@life-palette/uploader": ["../../../packages/uploader/src/index.ts"]
     },
 
     /* Linting */

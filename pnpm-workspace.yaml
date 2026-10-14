@@ -1,9 +1,12 @@
 packages:
   - "packages/*"
   - "apps/*"
+  - "apps/playground/*"
 nodeLinker: isolated
 verifyDepsBeforeRun: false
 allowBuilds:
+  core-js: false
+  core-js-pure: false
   esbuild: true
   onnxruntime-node: true
   protobufjs: true

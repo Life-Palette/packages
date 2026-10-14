@@ -15,7 +15,10 @@
     "docs:preview": "pnpm --filter ./apps/docs preview",
     "lint": "ultracite check",
     "lint:fix": "ultracite fix",
-    "play": "pnpm --filter ./apps/playground dev",
+    "play": "pnpm play:web",
+    "play:uniapp": "pnpm --filter @life-palette/playground-uniapp dev:h5",
+    "play:uniapp:weixin": "pnpm --filter @life-palette/playground-uniapp dev:mp-weixin",
+    "play:web": "pnpm --filter @life-palette/playground-web dev",
     "release": "pnpm build && changeset publish",
     "test": "pnpm -r run test",
     "version": "changeset version && node scripts/sync-changelog.js"

@@ -30,6 +30,12 @@
   },
   "overrides": [
     {
+      "includes": ["apps/playground/uniapp/**"],
+      "javascript": {
+        "globals": ["uni", "plus"]
+      }
+    },
+    {
       "includes": ["**/*.ts", "**/*.js", "**/*.mjs"],
       "linter": {
         "rules": {
