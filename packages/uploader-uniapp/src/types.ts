@@ -194,12 +194,15 @@ export interface UniRuntime {
   chooseImage?: (
     options: Callbacks<{
       tempFilePaths: string[];
-      tempFiles: Array<{
-        path?: string;
-        name?: string;
-        size: number;
-        file?: Blob & { name?: string };
-      }>;
+      tempFiles: Array<
+        | (Blob & { path?: string; name?: string })
+        | {
+            path?: string;
+            name?: string;
+            size: number;
+            file?: Blob & { name?: string };
+          }
+      >;
     }> & {
       count: number;
       sourceType: Array<"album" | "camera">;

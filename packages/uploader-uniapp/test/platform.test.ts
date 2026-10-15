@@ -240,7 +240,7 @@ describe("native file readers", () => {
 });
 
 describe("selection and permissions", () => {
-  it("keeps the browser File returned by H5 image selection", async () => {
+  it("keeps the browser File returned directly by H5 image selection", async () => {
     const uni = runtime();
     const file = new File(["abc"], "original.jpg");
     uni.getSystemInfoSync = () => ({ uniPlatform: "web" });
@@ -248,11 +248,27 @@ describe("selection and permissions", () => {
       expect(options.sizeType).toEqual(["original"]);
       options.success({
         tempFilePaths: ["blob:local"],
-        tempFiles: [{ file, size: 3 }],
+        tempFiles: [file],
       });
     });
     expect(await chooseImages({ uni })).toEqual([
       { name: "original.jpg", path: "blob:local", sourceFile: file },
+    ]);
+  });
+
+  it("supports wrapped temp files returned by other uni runtimes", async () => {
+    const uni = runtime();
+    const file = new File(["abc"], "wrapped.jpg");
+    uni.getSystemInfoSync = () => ({ uniPlatform: "web" });
+    uni.chooseImage = vi.fn((options) => {
+      options.success({
+        tempFilePaths: ["blob:wrapped"],
+        tempFiles: [{ file, size: 3 }],
+      });
+    });
+
+    expect(await chooseImages({ uni })).toEqual([
+      { name: "wrapped.jpg", path: "blob:wrapped", sourceFile: file },
     ]);
   });
 
