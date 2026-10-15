@@ -53,7 +53,7 @@ try {
 
 `getFileMetadata(input, config)` 只获取路径、名称、大小；`getFileInfo()` 同时获取 MD5。底层 `openUploadFile(file, config)` 返回 `name/size/checksum/read/close`，适合复用同一个读取器完成信息获取和上传。同一读取器共享正在计算的 MD5 并缓存成功结果；文件内容应保持不变，变更后重新打开。微信 stat、App HTML5+、H5 File 获取大小不强制计算 MD5；缺少 stat 的兼容运行时回退 getFileInfo，可能同时计算摘要。`close()` 可重复调用，会等待已发起的读取和摘要任务，关闭后拒绝新任务。`openFile` 配置可替换该读取器以支持额外平台。完整 `createUploader` 是针对统一会话协议的可选封装，并非使用文件工具的前提。
 
-公开入口：根入口用于便利导入；`/file` 提供文件能力，`/picker` 提供选择与权限，`/transport` 提供原生上传与请求能力。原有 `/selection`、`/permissions`、`/form-upload` 入口保留为兼容别名。
+根入口导出全部公开 API，作为默认导入方式；`/file`、`/picker`、`/transport` 等子路径可选，用于按能力细分导入。原有 `/selection`、`/permissions`、`/form-upload` 子路径保留为兼容别名。
 
 内部实现收敛为六个文件：`file.ts`、`picker.ts`、`transport.ts`、`uploader.ts`、`types.ts`、`index.ts`。函数仍可独立调用；文件合并不改变服务端协议或上传行为。
 
@@ -162,6 +162,7 @@ await openPermissionSettings({ platform: 'app' })
 - 小程序权限工具接收具体 `scope.xxx`，查询 getSetting，未申请时调用 authorize，拒绝时抛出 `PermissionError`。
 - App 接收 `camera` / `album`，使用 getAppAuthorizeSetting 查询；未申请时由选择器触发系统提示。
 - H5 检查返回 `unsupported`，浏览器/选择器负责授权。工具不会将 unsupported 误报为 authorized。
+- H5 选择器必须在用户点击触发的同步调用栈中打开，因此 `beforeChoose` 仅在 App/小程序执行；H5 由浏览器选择器处理授权。
 - 用户取消选择抛出 `SelectionCancelledError`，不应作为上传故障展示。
 - 打开权限设置始终是单独调用，不隐式弹窗。
 

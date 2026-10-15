@@ -9,7 +9,7 @@ import {
 } from "./types";
 
 export interface ChooseImagesOptions {
-  /** Business-specific permission/privacy checks are separate from selection. */
+  /** Native-only business permission/privacy checks. H5 must open the picker in the user gesture. */
   beforeChoose?: () => Promise<unknown>;
   count?: number;
   sizeType?: Array<"original" | "compressed">;
@@ -20,37 +20,52 @@ export interface ChooseImagesOptions {
 export async function chooseImages(
   options: ChooseImagesOptions = {}
 ): Promise<UploadFile[]> {
-  await options.beforeChoose?.();
   const api = getUni(options.uni);
   if (!api.chooseImage) {
     throw new UploadError("uni.chooseImage is unavailable");
   }
-  return new Promise((resolve, reject) => {
-    api.chooseImage?.({
-      count: options.count ?? 9,
-      fail: (error) =>
-        reject(
-          /cancel/i.test(error.errMsg ?? "")
-            ? new SelectionCancelledError({ cause: error })
-            : new UploadError(error.errMsg || "Image selection failed", {
-                cause: error,
-              })
-        ),
-      sizeType: options.sizeType ?? ["original"],
-      sourceType: options.sourceType ?? ["album", "camera"],
-      success: (result) =>
-        resolve(
-          result.tempFilePaths.map((path, index) => {
-            const file = result.tempFiles[index];
-            return {
-              name: file?.name || file?.file?.name,
-              path,
-              sourceFile: file?.file,
-            };
-          })
-        ),
+
+  const platform = api.getSystemInfoSync?.().uniPlatform;
+  const isH5 = platform
+    ? platform === "web" || platform === "h5"
+    : typeof document !== "undefined";
+
+  const openPicker = () =>
+    new Promise<UploadFile[]>((resolve, reject) => {
+      api.chooseImage?.({
+        count: options.count ?? 9,
+        fail: (error) =>
+          reject(
+            /cancel/i.test(error.errMsg ?? "")
+              ? new SelectionCancelledError({ cause: error })
+              : new UploadError(error.errMsg || "Image selection failed", {
+                  cause: error,
+                })
+          ),
+        sizeType: options.sizeType ?? ["original"],
+        sourceType: options.sourceType ?? ["album", "camera"],
+        success: (result) =>
+          resolve(
+            result.tempFilePaths.map((path, index) => {
+              const file = result.tempFiles[index];
+              return {
+                name: file?.name || file?.file?.name,
+                path,
+                sourceFile: file?.file,
+              };
+            })
+          ),
+      });
     });
-  });
+
+  // Browser pickers require transient user activation. Do not await permission
+  // checks (or any other promise) before calling chooseImage on H5.
+  if (isH5) {
+    return openPicker();
+  }
+
+  await options.beforeChoose?.();
+  return openPicker();
 }
 
 export interface PermissionConfig {

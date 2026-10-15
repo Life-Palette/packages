@@ -240,25 +240,51 @@ describe("native file readers", () => {
 });
 
 describe("selection and permissions", () => {
-  it("keeps the H5 File and checks business permissions before native selection", async () => {
+  it("keeps the browser File returned by H5 image selection", async () => {
     const uni = runtime();
     const file = new File(["abc"], "original.jpg");
-    const beforeChoose = vi.fn(async () => undefined);
+    uni.getSystemInfoSync = () => ({ uniPlatform: "web" });
     uni.chooseImage = vi.fn((options) => {
-      expect(beforeChoose).toHaveBeenCalledOnce();
       expect(options.sizeType).toEqual(["original"]);
       options.success({
         tempFilePaths: ["blob:local"],
         tempFiles: [{ file, size: 3 }],
       });
     });
-    expect(await chooseImages({ beforeChoose, uni })).toEqual([
+    expect(await chooseImages({ uni })).toEqual([
       { name: "original.jpg", path: "blob:local", sourceFile: file },
     ]);
   });
 
+  it("opens the H5 picker synchronously and skips native permission checks", async () => {
+    const uni = runtime();
+    uni.getSystemInfoSync = () => ({ uniPlatform: "web" });
+    const beforeChoose = vi.fn(async () => undefined);
+    uni.chooseImage = vi.fn((options) =>
+      options.success({ tempFilePaths: [], tempFiles: [] })
+    );
+
+    const selection = chooseImages({ beforeChoose, uni });
+
+    expect(uni.chooseImage).toHaveBeenCalledOnce();
+    expect(beforeChoose).not.toHaveBeenCalled();
+    await expect(selection).resolves.toEqual([]);
+  });
+
+  it("checks business permissions before native selection", async () => {
+    const uni = runtime();
+    uni.getSystemInfoSync = () => ({ uniPlatform: "mp-weixin" });
+    const beforeChoose = vi.fn(async () => undefined);
+    uni.chooseImage = vi.fn((options) => {
+      expect(beforeChoose).toHaveBeenCalledOnce();
+      options.success({ tempFilePaths: [], tempFiles: [] });
+    });
+    await chooseImages({ beforeChoose, uni });
+  });
+
   it("does not open the picker if a business check rejects", async () => {
     const uni = runtime();
+    uni.getSystemInfoSync = () => ({ uniPlatform: "mp-weixin" });
     uni.chooseImage = vi.fn();
     await expect(
       chooseImages({

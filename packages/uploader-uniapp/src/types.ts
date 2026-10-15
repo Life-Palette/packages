@@ -211,6 +211,7 @@ export interface UniRuntime {
     cameraAuthorized?: string;
     albumAuthorized?: string;
   };
+  getSystemInfoSync?: () => { uniPlatform?: string };
   getFileInfo?: (
     options: Callbacks<FileInfo> & { filePath: string; digestAlgorithm: "md5" }
   ) => void;
