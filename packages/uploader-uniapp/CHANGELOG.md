@@ -1,5 +1,11 @@
 # @life-palette/uploader-uniapp
 
+## 0.2.2
+
+### Patch Changes
+
+- [#13](https://github.com/Life-Palette/packages/pull/13) [`c866b54`](https://github.com/Life-Palette/packages/commit/c866b54ff508eba8b0f32f3b56994b8a50952ec7) Thanks [@IceyWu](https://github.com/IceyWu)! - Preserve raw browser `File` objects returned by the uni-app H5 image picker.
+
 ## 0.2.1
 
 ### Patch Changes
