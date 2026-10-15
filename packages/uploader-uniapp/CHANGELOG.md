@@ -1,5 +1,11 @@
 # @life-palette/uploader-uniapp
 
+## 0.2.1
+
+### Patch Changes
+
+- [`32e0dfc`](https://github.com/Life-Palette/packages/commit/32e0dfc876b192d989b18e63cc48c8e9a09356d4) Thanks [@IceyWu](https://github.com/IceyWu)! - Preserve browser user activation when opening the H5 image picker and skip native permission prechecks on H5.
+
 ## 0.2.0
 
 ### Minor Changes
