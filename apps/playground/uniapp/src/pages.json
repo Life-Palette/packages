@@ -5,6 +5,12 @@
       "style": {
         "navigationBarTitleText": "文件上传 Demo"
       }
+    },
+    {
+      "path": "pages/metaprobe/index",
+      "style": {
+        "navigationBarTitleText": "metaprobe 小程序验证"
+      }
     }
   ],
   "globalStyle": {

@@ -32,7 +32,7 @@ function uploadSettings(config: UploaderConfig, options: UploadOptions) {
   return { concurrency, retries, retryDelayMs };
 }
 
-/** Unified Go upload contract, without media analysis or picker side effects. */
+/** Unified Go upload contract. Analyze final bytes separately, then supply metadata. */
 export function createUploader(config: UploaderConfig) {
   const transport = createTransport(config);
 
@@ -97,6 +97,12 @@ export function createUploader(config: UploaderConfig) {
     try {
       options.cancellation?.throwIfAborted();
       validateReader(reader);
+      if (options.metadata && options.metadata.basic.size !== reader.size) {
+        throw new UploadError("Metadata size does not match the uploaded file");
+      }
+      if (options.checksum && options.metadata?.basic.md5 && options.checksum !== options.metadata.basic.md5) {
+        throw new UploadError("Metadata MD5 does not match the supplied checksum");
+      }
       const checksum = await getChecksum(reader, options);
       if (!checksum) {
         throw new UploadError("File checksum is empty");
@@ -124,7 +130,7 @@ export function createUploader(config: UploaderConfig) {
       const result = await transport.request<UploadedFile>(
         `/uploads/${encodeURIComponent(session.id)}/complete`,
         "POST",
-        { is_private: options.isPrivate ?? false, parts },
+        { is_private: options.isPrivate ?? false, parts, ...(options.metadata ? { metadata: options.metadata } : {}) },
         options.cancellation
       );
       progress?.({ percent: 100, stage: "completing" });
@@ -148,6 +154,9 @@ export function createUploader(config: UploaderConfig) {
     files: Array<UploadFile | string>,
     options: UploadOptions = {}
   ): Promise<UploadedFile[]> {
+    if (files.length > 1 && options.metadata) {
+      throw new UploadError("Analyze each file and upload it with its own metadata");
+    }
     const results: UploadedFile[] = [];
     for (const file of files) {
       results.push(await upload(file, options));
@@ -377,6 +386,7 @@ async function getChecksum(
 ): Promise<string> {
   return (
     options.checksum ||
+    options.metadata?.basic.md5 ||
     reader.checksum((percent) => {
       options.cancellation?.throwIfAborted();
       options.onProgress?.({ percent, stage: "md5" });

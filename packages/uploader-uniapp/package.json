@@ -1,7 +1,7 @@
 {
   "name": "@life-palette/uploader-uniapp",
   "version": "0.2.2",
-  "description": "Native uni-app direct and multipart PUT uploads, file selection and permission helpers. No media processing.",
+  "description": "Uni-app media analysis, EXIF-preserving compression and resumable presigned uploads.",
   "homepage": "https://github.com/Life-Palette/packages/tree/main/packages/uploader-uniapp#readme",
   "bugs": "https://github.com/Life-Palette/packages/issues",
   "repository": {
@@ -13,6 +13,17 @@
   "sideEffects": false,
   "type": "module",
   "exports": {
+    "./browser": {
+      "types": "./dist/browser.d.mts",
+      "import": "./dist/browser.mjs",
+      "require": "./dist/browser.cjs"
+    },
+    "./assets/*": "./dist/assets/*",
+    "./media": {
+      "types": "./dist/media.d.mts",
+      "import": "./dist/media.mjs",
+      "require": "./dist/media.cjs"
+    },
     ".": {
       "import": {
         "types": "./dist/index.d.mts",
@@ -92,12 +103,17 @@
     "README.md"
   ],
   "scripts": {
-    "build": "tsdown",
+    "build": "node scripts/prepare-media.mjs && tsdown && node scripts/copy-media.mjs",
     "prepublishOnly": "pnpm build && publint --strict",
-    "test": "vitest run",
-    "typecheck": "tsc --noEmit"
+    "test": "node scripts/prepare-media.mjs && vitest run",
+    "typecheck": "node scripts/prepare-media.mjs && tsc --noEmit"
   },
   "dependencies": {
+    "@life-palette/media": "workspace:*",
+    "@life-palette/uploader": "workspace:*",
+    "arthash": "^0.5.0",
+    "blurhash": "^2.0.5",
+    "metaprobe": "^0.0.1",
     "spark-md5": "^3.0.2"
   },
   "devDependencies": {

@@ -153,7 +153,10 @@ function isAnimated(chunk: Chunk) {
     return text(chunk.bytes, 4, 4) === "MPF\0";
   }
   if (chunk.type === "exif") {
-    const content = new TextDecoder().decode(chunk.bytes);
+    let content = "";
+    for (let start = 0; start < chunk.bytes.length; start += 8192) {
+      content += text(chunk.bytes, start, Math.min(8192, chunk.bytes.length - start));
+    }
     return content.includes("MotionPhoto") || content.includes("MicroVideo");
   }
   return false;

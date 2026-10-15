@@ -81,6 +81,29 @@ function fixture(
 }
 
 describe("uni-app unified uploader", () => {
+  it.each([direct, multipart])("passes metadata through and reuses its MD5 in $mode uploads", async (session) => {
+    const { uploader, request, reader } = fixture(session);
+    const metadata = { schema_version: 1 as const, basic: { name: "original.png", size: 7, md5: "analyzed-md5", extension: ".png", type: "image/png", width: 4, height: 3 }, image: { colors: [], exif: { device_make: "TestCam" } } };
+    await uploader.upload("/file", { metadata });
+    expect(reader.checksum).not.toHaveBeenCalled();
+    expect(request.mock.calls[0]?.[0].data).toMatchObject({ checksum: "analyzed-md5" });
+    const complete = request.mock.calls.find(([options]) => options.url.endsWith("/complete"));
+    expect(complete?.[0].data).toMatchObject({ metadata });
+  });
+  it("rejects stale metadata and conflicting checksums before network requests", async () => {
+    const { uploader, request, reader } = fixture();
+    const metadata = { schema_version: 1 as const, basic: { name: "file", size: 8, md5: "abc", type: "image/png", extension: ".png" } };
+    await expect(uploader.upload("/file", { metadata })).rejects.toThrow("Metadata size");
+    expect(request).not.toHaveBeenCalled();
+    metadata.basic.size = 7;
+    await expect(uploader.upload("/file", { metadata, checksum: "different" })).rejects.toThrow("MD5");
+    expect(reader.close).toHaveBeenCalledTimes(2);
+  });
+  it("does not reuse one metadata object across multiple files", async () => {
+    const { uploader, request } = fixture();
+    await expect(uploader.uploadFiles(["/a", "/b"], { metadata: { schema_version: 1, basic: { name: "file", size: 7, md5: "abc", type: "image/png", extension: ".png" } } })).rejects.toThrow("each file");
+    expect(request).not.toHaveBeenCalled();
+  });
   it("retries direct PUT failures without rereading the file", async () => {
     let attempts = 0;
     const { reader, uploader } = fixture(direct, (options) => {

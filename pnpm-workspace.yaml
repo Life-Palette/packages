@@ -3,6 +3,9 @@ packages:
   - "apps/*"
   - "apps/playground/*"
 nodeLinker: isolated
+overrides:
+  # Local validation of the unpublished mini-program entry; no registry release.
+  metaprobe: link:../metaprobe
 verifyDepsBeforeRun: false
 allowBuilds:
   core-js: false

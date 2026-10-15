@@ -13,6 +13,11 @@
   "sideEffects": false,
   "type": "module",
   "exports": {
+    "./shared": {
+      "types": "./dist/shared.d.mts",
+      "import": "./dist/shared.mjs",
+      "require": "./dist/shared.cjs"
+    },
     ".": {
       "import": {
         "types": "./dist/index.d.mts",

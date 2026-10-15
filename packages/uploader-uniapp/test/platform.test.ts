@@ -21,6 +21,28 @@ function runtime(): UniRuntime {
 }
 
 describe("native file readers", () => {
+  it("caps native bridge reads at 1 MiB even for a large upload part", async () => {
+    const size = 3 * 1024 * 1024 + 9;
+    const read = vi.fn((options) => {
+      expect(options.length).toBeLessThanOrEqual(1024 * 1024);
+      new Uint8Array(options.arrayBuffer).fill(Math.floor(options.position / (1024 * 1024)) + 1);
+      options.success({ bytesRead: options.length, arrayBuffer: options.arrayBuffer });
+    });
+    const close = vi.fn((options) => options.success({}));
+    const reader = await openUploadFile({ path: "/large" }, { platform: "mp", uni: {
+      request: vi.fn(), getFileSystemManager: () => ({
+        stat: (options) => options.success({ stats: { size } }),
+        open: (options) => options.success({ fd: "large-fd" }), read, close,
+      }),
+    } });
+    const bytes = new Uint8Array(await reader.read(0, size));
+    expect(read).toHaveBeenCalledTimes(4);
+    expect(bytes[0]).toBe(1);
+    expect(bytes[1024 * 1024]).toBe(2);
+    expect(bytes[size - 1]).toBe(4);
+    await reader.close();
+    expect(close).toHaveBeenCalledOnce();
+  });
   it.each(["constructor", "read", "decode"])(
     "releases App slices when %s fails synchronously",
     async (stage) => {

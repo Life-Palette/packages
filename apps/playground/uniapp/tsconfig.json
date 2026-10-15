@@ -4,6 +4,9 @@
     "sourceMap": true,
     "baseUrl": ".",
     "paths": {
+      "@life-palette/uploader-uniapp/browser": ["../../../packages/uploader-uniapp/src/browser.ts"],
+      "@life-palette/uploader-uniapp": ["../../../packages/uploader-uniapp/src/index.ts"],
+      "metaprobe/miniprogram": ["../../../../metaprobe/miniprogram/index.d.ts"],
       "@/*": ["./src/*"]
     },
     "lib": ["esnext", "dom"],

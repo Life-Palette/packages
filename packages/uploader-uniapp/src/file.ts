@@ -373,25 +373,29 @@ async function openNativeRange(
       if (start === end) {
         return arrayBuffer;
       }
+      for (let position = start; position < end; position += 1024 * 1024) {
+      const length = Math.min(1024 * 1024, end - position);
       const result = await nativeCall<{
         bytesRead: number;
         arrayBuffer: ArrayBuffer;
       }>((callbacks) =>
         read.call(fs, {
           ...callbacks,
-          arrayBuffer,
+          arrayBuffer: new ArrayBuffer(length),
           fd,
-          length: end - start,
+          length,
           offset: 0,
-          position: start,
+          position,
         })
       );
-      if (result.bytesRead !== end - start) {
+      if (result.bytesRead !== length) {
         throw new UploadError(
           "File changed or native filesystem returned a short read"
         );
       }
-      return result.arrayBuffer;
+      new Uint8Array(arrayBuffer).set(new Uint8Array(result.arrayBuffer), position - start);
+      }
+      return arrayBuffer;
     },
   };
 }

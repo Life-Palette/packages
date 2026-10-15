@@ -10,6 +10,8 @@ lerna-debug.log*
 node_modules
 .DS_Store
 dist
+src/static/metaprobe/
+src/static/uploader-uniapp/
 *.local
 
 # Editor directories and files

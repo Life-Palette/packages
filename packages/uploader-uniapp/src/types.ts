@@ -1,3 +1,7 @@
+import type { MediaAnalysisResult } from "@life-palette/media/shared";
+
+export type { MediaAnalysisResult } from "@life-palette/media/shared";
+
 export interface UploadFile {
   name?: string;
   path: string;
@@ -54,6 +58,8 @@ export interface UploadOptions {
   cancellation?: UploadCancellation;
   checksum?: string;
   isPrivate?: boolean;
+  /** Analysis must describe the exact bytes being uploaded. */
+  metadata?: MediaAnalysisResult;
   onProgress?: (progress: UploadProgress) => void;
   partConcurrency?: number;
   /** Number of retries after the first attempt. */

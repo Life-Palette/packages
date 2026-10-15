@@ -1,3 +1,10 @@
+export { compressImage, prepareUpload, type CompressionOptions, type PrepareUploadOptions } from "./compress";
+export { fileParse, parseFileName, isVideo, isLivePhoto, getVideoThumbnailUrl, generateOssImageParams, detectLivePhotoPairs } from "@life-palette/uploader/shared";
+export {
+  analyzeMedia,
+  type MediaConfig,
+  type MediaAnalysisOptions,
+} from "./media";
 export {
   type ChunkRange,
   createTemporaryFile,

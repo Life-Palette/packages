@@ -1,7 +1,6 @@
 <script setup lang="ts">
 import {
   chooseImages,
-  createUploader,
   ensurePermission,
   getChunkRanges,
   getFileInfo,
@@ -16,6 +15,7 @@ import {
   uploadFormFile,
 } from "@life-palette/uploader-uniapp";
 import { onMounted, ref, watch } from "vue";
+import { uploadMediaFile } from "../../utils/upload-workflow";
 
 let platform: UniPlatform = "h5";
 // #ifdef MP
@@ -46,6 +46,7 @@ const error = ref("");
 const result = ref("");
 const denied = ref(false);
 const isPrivate = ref(false);
+const compressBeforeUpload = ref(false);
 const chunkSizeMB = ref(5);
 const source = ref<"album" | "camera">("album");
 
@@ -143,6 +144,9 @@ function onPrivateChange(event: Event | { detail: { value: boolean } }) {
     isPrivate.value = event.detail.value;
   }
 }
+function onCompressionChange(event: Event | { detail: { value: boolean } }) {
+  if ("detail" in event) compressBeforeUpload.value = event.detail.value;
+}
 
 async function select() {
   error.value = "";
@@ -210,11 +214,6 @@ async function upload(form: boolean) {
   percent.value = 0;
   const auth = token.value.replace(/^Bearer\s+/i, "").trim();
   try {
-    const uploader = createUploader({
-      apiBaseUrl: apiBaseUrl.value,
-      getToken: () => auth || null,
-      platform,
-    });
     const responses: unknown[] = [];
     for (const [index, file] of files.value.entries()) {
       cancellation.throwIfAborted();
@@ -231,14 +230,18 @@ async function upload(form: boolean) {
         responses.push(await task.result);
       } else {
         responses.push(
-          await uploader.upload(file, {
+          (await uploadMediaFile(file, {
+            apiBaseUrl: apiBaseUrl.value,
+            token: auth,
+            platform,
+            compress: compressBeforeUpload.value,
             cancellation,
             isPrivate: isPrivate.value,
             onProgress: (progress) => {
               stage.value = `${index + 1}/${files.value.length} · ${progress.stage}`;
               percent.value = progress.percent;
             },
-          })
+          })).uploaded
         );
       }
     }
@@ -261,6 +264,7 @@ async function upload(form: boolean) {
 <template>
   <view class="page">
     <text class="title">uni-app 文件上传</text>
+    <navigator url="/pages/metaprobe/index"><button size="mini">metaprobe 小程序验证</button></navigator>
     <text class="note">选择文件后单独上传。服务端决定直传或分片模式。</text>
     <view class="layout">
     <view class="upload-column">
@@ -268,6 +272,7 @@ async function upload(form: boolean) {
       <text>API 地址</text><input v-model="apiBaseUrl" placeholder="https://api.example.com/api/v1" :disabled="busy" />
       <text>Token（本地保存，清空即删除）</text><input v-model="token" :maxlength="-1" password placeholder="访问令牌" :disabled="busy" />
       <view class="row"><text>私有文件</text><switch :checked="isPrivate" :disabled="busy" @change="onPrivateChange" /></view>
+      <view class="row"><text>上传前压缩（保留 EXIF）</text><switch :checked="compressBeforeUpload" :disabled="busy" @change="onCompressionChange" /></view>
       <view class="row"><button size="mini" :disabled="busy" @click="source = 'album'; select()">相册</button><button size="mini" :disabled="busy" @click="source = 'camera'; select()">拍照</button></view>
       <view v-for="file in files" :key="file.path" class="file"><image :src="file.path" mode="aspectFill" /><text>{{ file.name || file.path }}</text></view>
       <button class="primary" :disabled="busy || !files.length || !apiBaseUrl" @click="upload(false)">上传（自动直传 / 分片）</button>
