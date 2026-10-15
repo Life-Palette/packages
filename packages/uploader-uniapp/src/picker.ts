@@ -48,10 +48,15 @@ export async function chooseImages(
           resolve(
             result.tempFilePaths.map((path, index) => {
               const file = result.tempFiles[index];
+              const sourceFile = file
+                ? "file" in file
+                  ? file.file
+                  : (file as Blob & { name?: string })
+                : undefined;
               return {
-                name: file?.name || file?.file?.name,
+                name: file?.name || sourceFile?.name,
                 path,
-                sourceFile: file?.file,
+                sourceFile,
               };
             })
           ),
