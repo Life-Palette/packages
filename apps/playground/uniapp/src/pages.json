@@ -1,4 +1,10 @@
 {
+  "easycom": {
+    "autoscan": true,
+    "custom": {
+      "^wd-(.*)": "@wot-ui/ui/components/wd-$1/wd-$1.vue"
+    }
+  },
   "pages": [
     {
       "path": "pages/index/index",
@@ -9,10 +15,27 @@
     {
       "path": "pages/metaprobe/index",
       "style": {
-        "navigationBarTitleText": "metaprobe 小程序验证"
+        "navigationBarTitleText": "媒体元数据实验室"
+      }
+    },
+    {
+      "path": "pages/live-photo-test/index",
+      "style": {
+        "navigationBarTitleText": "实况照片专项测试"
       }
     }
   ],
+  "tabBar": {
+    "color": "#858b96",
+    "selectedColor": "#3478f6",
+    "backgroundColor": "#ffffff",
+    "borderStyle": "white",
+    "list": [
+      { "pagePath": "pages/index/index", "text": "上传演示", "iconPath": "static/tabbar/upload-gray.png", "selectedIconPath": "static/tabbar/upload-blue.png" },
+      { "pagePath": "pages/metaprobe/index", "text": "媒体解析", "iconPath": "static/tabbar/metadata-gray.png", "selectedIconPath": "static/tabbar/metadata-blue.png" },
+      { "pagePath": "pages/live-photo-test/index", "text": "实况测试", "iconPath": "static/tabbar/live-gray.png", "selectedIconPath": "static/tabbar/live-blue.png" }
+    ]
+  },
   "globalStyle": {
     "navigationBarTextStyle": "black",
     "navigationBarTitleText": "文件上传 Demo",

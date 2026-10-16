@@ -8,6 +8,7 @@ overrides:
   metaprobe: link:../metaprobe
 verifyDepsBeforeRun: false
 allowBuilds:
+  '@parcel/watcher': false
   core-js: false
   core-js-pure: false
   esbuild: true

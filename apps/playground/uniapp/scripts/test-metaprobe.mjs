@@ -6,6 +6,7 @@ import { fileURLToPath } from "node:url";
 
 import { connectWechat } from "./wechat-automation.mjs";
 const { call, close } = await connectWechat();
+const fixtureAsset = process.env.METAPROBE_FIXTURE_ASSET || "static/uploader-uniapp/metadata-fixture.jpg";
 
 try {
   let page;
@@ -34,6 +35,29 @@ try {
       "async function () { const pages = getCurrentPages(); const page = pages[pages.length - 1]; return await page.$vm.runValidation(); }",
   });
   const report = response.result;
+  const visualAnalysis = await call("App.callFunction", {
+    args: [fixtureAsset],
+    functionDeclaration: `async function (fixtureAsset) {
+      const page = getCurrentPages()[getCurrentPages().length - 1].$vm;
+      const api = require("common/vendor.js").index;
+      const fs = api.getFileSystemManager();
+      const path = api.env.USER_DATA_PATH + "/metaprobe-visual-" + Date.now() + ".jpg";
+      fs.copyFileSync(fixtureAsset, path);
+      const metadata = await page.analyzeFile(path, fixtureAsset.split("/").pop());
+      fs.unlinkSync(path);
+      return {
+        passed: !!metadata?.basic?.width && !!metadata?.image?.blurhash && !!metadata?.image?.arthash && metadata.image.colors.length > 0 && !!metadata.image.exif.device_make,
+        basic: metadata?.basic,
+        blurhash: metadata?.image?.blurhash,
+        arthash: metadata?.image?.arthash,
+        arthashCodec: metadata?.image?.arthash_codec,
+        colors: metadata?.image?.colors,
+        exif: metadata?.image?.exif,
+        status: page.status,
+      };
+    }`,
+  });
+  report.visualAnalysis = visualAnalysis.result;
   const largeFile = await call("App.callFunction", {
     args: [process.env.METAPROBE_TEST_FILE || null],
     functionDeclaration: `async function (sourcePath) {
@@ -59,10 +83,10 @@ try {
         const pages = getCurrentPages();
         const page = pages[pages.length - 1].$vm;
         const started = Date.now();
-        const metadata = await page.analyzeFile(path, "large-fixture.jpg");
-        return { passed: (sourcePath ? metadata?.width > 0 && metadata?.height > 0 : metadata?.width === 32 && metadata?.height === 24) && !page.busy,
-          bytes: size, elapsedMs: Date.now() - started, width: metadata?.width,
-          height: metadata?.height, busy: page.busy, status: page.status,
+        const metadata = await page.analyzeFile(path, "large-fixture.jpg", false);
+        return { passed: (sourcePath ? metadata?.basic?.width > 0 && metadata?.basic?.height > 0 : metadata?.basic?.width === 32 && metadata?.basic?.height === 24) && !page.busy,
+          bytes: size, elapsedMs: Date.now() - started, width: metadata?.basic?.width,
+          height: metadata?.basic?.height, busy: page.busy, status: page.status,
           ...(metadata ? {} : { error: page.result }) };
       } finally {
         if (created) fs.unlinkSync(path);
@@ -80,6 +104,23 @@ try {
     JSON.stringify(report, null, 2)
   );
   console.log(JSON.stringify(report, null, 2));
+  await call("App.callFunction", {
+    args: [fixtureAsset],
+    functionDeclaration: `async function (fixtureAsset) {
+      const page = getCurrentPages()[getCurrentPages().length - 1].$vm;
+      const api = require("common/vendor.js").index;
+      const fs = api.getFileSystemManager();
+      const path = api.env.USER_DATA_PATH + "/metaprobe-visual-view-" + Date.now() + ".jpg";
+      fs.copyFileSync(fixtureAsset, path);
+      try {
+        await page.analyzeFile(path, fixtureAsset.split("/").pop());
+      } finally {
+        fs.unlinkSync(path);
+      }
+      return true;
+    }`,
+  });
+  await delay(300);
   try {
     const screenshot = await call("App.captureScreenshot");
     if (screenshot.data) {
@@ -88,10 +129,27 @@ try {
         Buffer.from(screenshot.data, "base64")
       );
     }
+    await call("App.callWxMethod", {
+      args: [{ scrollTop: 1050, duration: 0 }],
+      method: "pageScrollTo",
+    });
+    await delay(300);
+    const detailsScreenshot = await call("App.captureScreenshot");
+    if (detailsScreenshot.data) {
+      await writeFile(
+        resolvePath(output, "simulator-details.png"),
+        Buffer.from(detailsScreenshot.data, "base64")
+      );
+    }
   } catch (error) {
     console.log(`Screenshot unavailable: ${error.message}`);
   }
   assert.equal(report.largeFile.passed, true, JSON.stringify(report.largeFile));
+  assert.equal(
+    report.visualAnalysis.passed,
+    true,
+    JSON.stringify(report.visualAnalysis)
+  );
   assert.equal(
     report.status,
     "passed",

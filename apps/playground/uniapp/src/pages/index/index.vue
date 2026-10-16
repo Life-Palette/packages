@@ -139,15 +139,6 @@ watch([apiBaseUrl, token], () => {
   fileListError.value = "";
 });
 
-function onPrivateChange(event: Event | { detail: { value: boolean } }) {
-  if ("detail" in event) {
-    isPrivate.value = event.detail.value;
-  }
-}
-function onCompressionChange(event: Event | { detail: { value: boolean } }) {
-  if ("detail" in event) compressBeforeUpload.value = event.detail.value;
-}
-
 async function select() {
   error.value = "";
   denied.value = false;
@@ -263,74 +254,85 @@ async function upload(form: boolean) {
 
 <template>
   <view class="page">
-    <text class="title">uni-app 文件上传</text>
-    <navigator url="/pages/metaprobe/index"><button size="mini">metaprobe 小程序验证</button></navigator>
-    <text class="note">选择文件后单独上传。服务端决定直传或分片模式。</text>
+    <view class="page-heading">
+      <text class="title">文件上传</text>
+      <wd-tag type="primary" variant="light">UniApp · MP</wd-tag>
+    </view>
+    <text class="note">选择媒体文件，自动直传或按需分片上传。</text>
     <view class="layout">
     <view class="upload-column">
-    <view class="panel">
-      <text>API 地址</text><input v-model="apiBaseUrl" placeholder="https://api.example.com/api/v1" :disabled="busy" />
-      <text>Token（本地保存，清空即删除）</text><input v-model="token" :maxlength="-1" password placeholder="访问令牌" :disabled="busy" />
-      <view class="row"><text>私有文件</text><switch :checked="isPrivate" :disabled="busy" @change="onPrivateChange" /></view>
-      <view class="row"><text>上传前压缩（保留 EXIF）</text><switch :checked="compressBeforeUpload" :disabled="busy" @change="onCompressionChange" /></view>
-      <view class="row"><button size="mini" :disabled="busy" @click="source = 'album'; select()">相册</button><button size="mini" :disabled="busy" @click="source = 'camera'; select()">拍照</button></view>
-      <view v-for="file in files" :key="file.path" class="file"><image :src="file.path" mode="aspectFill" /><text>{{ file.name || file.path }}</text></view>
-      <button class="primary" :disabled="busy || !files.length || !apiBaseUrl" @click="upload(false)">上传（自动直传 / 分片）</button>
-    </view>
-    <view class="panel">
-      <text>独立文件工具 · 分片大小（MiB）</text>
-      <input v-model.number="chunkSizeMB" type="digit" :disabled="busy" />
-      <button :disabled="busy || !files.length" @click="inspectFile">获取 MD5 / 大小 / 分片范围</button>
-    </view>
-    <view class="panel">
-      <text>表单上传地址</text><input v-model="formUrl" placeholder="支持 multipart/form-data POST 的地址" :disabled="busy" />
-      <button :disabled="busy || !files.length || !formUrl" @click="upload(true)">普通表单上传</button>
-    </view>
-    <button v-if="uploading" @click="cancellation?.cancel()">取消上传</button>
-    <text v-if="stage">{{ stage }}</text><progress :percent="percent" show-info />
+    <wd-card title="服务与上传设置" custom-class="panel">
+      <wd-cell-group border>
+        <wd-cell title="API 地址" center>
+          <wd-input v-model="apiBaseUrl" placeholder="https://api.example.com/api/v1" :disabled="busy" clearable />
+        </wd-cell>
+        <wd-cell title="Token" label="保存在本机，清空后删除" center>
+          <wd-input v-model="token" type="text" show-password :maxlength="-1" placeholder="访问令牌" :disabled="busy" clearable />
+        </wd-cell>
+        <wd-cell title="私有文件" center>
+          <wd-switch v-model="isPrivate" :disabled="busy" />
+        </wd-cell>
+        <wd-cell title="上传前压缩" label="尽量保留 EXIF 信息" center>
+          <wd-switch v-model="compressBeforeUpload" :disabled="busy" />
+        </wd-cell>
+      </wd-cell-group>
+      <view class="source-actions">
+        <wd-button size="small" round variant="plain" icon="image" :disabled="busy" @click="source = 'album'; select()">从相册选择</wd-button>
+        <wd-button size="small" round variant="plain" icon="camera" :disabled="busy" @click="source = 'camera'; select()">拍摄</wd-button>
+      </view>
+      <view v-for="file in files" :key="file.path" class="file"><wd-img :src="file.path" width="96rpx" height="96rpx" mode="aspectFill" :radius="8" :enable-preview="true" /><text>{{ file.name || file.path }}</text></view>
+      <wd-button custom-class="primary" type="primary" block round icon="upload" :disabled="busy || !files.length || !apiBaseUrl" @click="upload(false)">上传（自动直传 / 分片）</wd-button>
+    </wd-card>
+    <wd-card title="文件检查" custom-class="panel">
+      <wd-cell title="分片大小（MiB）" center>
+        <wd-input v-model.number="chunkSizeMB" type="digit" :disabled="busy" />
+      </wd-cell>
+      <wd-button block round variant="plain" :disabled="busy || !files.length" @click="inspectFile">获取 MD5 / 大小 / 分片范围</wd-button>
+    </wd-card>
+    <wd-card title="普通表单上传" custom-class="panel">
+      <wd-input v-model="formUrl" placeholder="支持 multipart/form-data POST 的地址" :disabled="busy" clearable />
+      <wd-button block round variant="plain" :disabled="busy || !files.length || !formUrl" @click="upload(true)">普通表单上传</wd-button>
+    </wd-card>
+    <wd-button v-if="uploading" size="small" round variant="plain" @click="cancellation?.cancel()">取消上传</wd-button>
+    <wd-cell v-if="stage" :title="stage" :value="`${percent}%`" />
+    <wd-progress v-if="stage" :percentage="percent" />
     <text v-if="error" class="error">{{ error }}</text>
-    <button v-if="denied" @click="settings">打开权限设置</button>
+    <wd-button v-if="denied" round variant="plain" @click="settings">打开权限设置</wd-button>
     <text v-if="result" class="result" selectable>{{ result }}</text>
     </view>
-    <view class="panel file-list-panel">
-      <view class="list-heading"><text class="list-title">文件列表</text><button size="mini" :disabled="loadingFiles || !!deletingUID" @click="loadFiles">{{ loadingFiles ? "刷新中" : "刷新列表" }}</button></view>
+    <wd-card title="文件列表" custom-class="panel file-list-panel">
+      <view class="list-heading"><wd-button size="small" round variant="plain" :disabled="loadingFiles || !!deletingUID" @click="loadFiles">{{ loadingFiles ? "刷新中" : "刷新列表" }}</wd-button></view>
       <text class="list-note">上传后自动刷新。删除需要有效 Token，并再次确认。</text>
       <text v-if="fileListError" class="error">{{ fileListError }}</text>
       <text v-if="!loadingFiles && !fileList.length && !fileListError" class="list-note">暂无文件，填写 Token 后可刷新查看私有文件。</text>
       <view v-for="file in fileList" :key="file.uid" class="list-item">
         <view class="list-main"><text class="list-name" selectable>{{ file.name }}</text><text class="list-note">{{ file.size }} B · {{ file.is_private ? "私有" : "公开" }}</text></view>
         <view class="list-actions">
-          <button size="mini" class="danger" :disabled="busy || !!deletingUID || !token.trim()" @click="deleteFile(file)">{{ deletingUID === file.uid ? "删除中" : pendingDeleteUID === file.uid ? "确认删除" : "删除" }}</button>
-          <button v-if="pendingDeleteUID === file.uid" size="mini" :disabled="!!deletingUID" @click="pendingDeleteUID = ''">取消</button>
+          <wd-button size="small" round type="danger" variant="soft" :disabled="busy || !!deletingUID || !token.trim()" @click="deleteFile(file)">{{ deletingUID === file.uid ? "删除中" : pendingDeleteUID === file.uid ? "确认删除" : "删除" }}</wd-button>
+          <wd-button v-if="pendingDeleteUID === file.uid" size="small" round variant="plain" :disabled="!!deletingUID" @click="pendingDeleteUID = ''">取消</wd-button>
         </view>
       </view>
-    </view>
+    </wd-card>
     </view>
   </view>
 </template>
 
 <style>
-.page { padding: 32rpx; color: #24352b; background: #f5f7f3; min-height: 100vh; box-sizing: border-box; }
-.layout { display: flex; flex-wrap: wrap; gap: 24rpx; align-items: flex-start; }
-.upload-column { flex: 1 1 640rpx; min-width: 0; }
-.file-list-panel { flex: 1 1 540rpx; min-width: 0; }
-.list-heading { display: flex; align-items: center; justify-content: space-between; gap: 20rpx; }
-.list-heading button { margin: 0; }
-.list-title { font-size: 34rpx; font-weight: 600; }
-.list-note { display: block; color: #617269; font-size: 24rpx; margin: 12rpx 0; }
-.list-item { border-top: 1px solid #e3e8e3; padding: 20rpx 0; }
+.page { box-sizing: border-box; min-height: 100vh; padding: 30rpx 28rpx 28rpx; color: #262626; background: #f5f6f8; }
+.page-heading { display: flex; align-items: center; justify-content: space-between; gap: 16rpx; }
+.title { display: block; font-size: 38rpx; font-weight: 650; line-height: 1.35; }
+.note { display: block; margin: 10rpx 0 24rpx; color: #777; font-size: 23rpx; line-height: 1.5; }
+.layout { display: block; }
+.upload-column { min-width: 0; }
+.panel { display: block; margin-bottom: 20rpx; }
+.source-actions { display: flex; gap: 16rpx; margin: 12rpx 0 18rpx; }
+.file { display: flex; align-items: center; gap: 16rpx; margin: 16rpx 0; overflow-wrap: anywhere; }
+.primary { margin-top: 12rpx; }
+.list-heading { display: flex; justify-content: flex-end; margin-bottom: 8rpx; }
+.list-note { display: block; margin: 12rpx 0; color: #777; font-size: 22rpx; line-height: 1.5; }
+.list-item { padding: 18rpx 0; border-top: 1rpx solid #eee; }
 .list-name { display: block; overflow-wrap: anywhere; }
-.list-actions { display: flex; gap: 16rpx; }
-.list-actions button { margin: 0; }
-.danger { background: #fce9e5; color: #a82b2b; }
-.title { display: block; font-size: 44rpx; font-weight: 600; margin-bottom: 16rpx; }
-.note { display: block; color: #617269; margin-bottom: 24rpx; }
-.panel { padding: 28rpx; margin-bottom: 24rpx; border-radius: 16rpx; background: white; }
-input { border: 1px solid #dce3dd; padding: 16rpx; margin: 12rpx 0 24rpx; border-radius: 8rpx; }
-.row { display: flex; align-items: center; gap: 20rpx; margin-bottom: 24rpx; }
-.file { display: flex; gap: 16rpx; align-items: center; margin: 16rpx 0; overflow-wrap: anywhere; }
-.file image { width: 96rpx; height: 96rpx; flex-shrink: 0; }
-.primary { background: #317851; color: white; }
-.error { display: block; color: #a82b2b; margin-top: 20rpx; }
-.result { display: block; white-space: pre-wrap; overflow-wrap: anywhere; font-family: monospace; margin-top: 24rpx; }
+.list-actions { display: flex; gap: 12rpx; margin-top: 12rpx; }
+.error { display: block; margin-top: 18rpx; color: #bd3b32; font-size: 23rpx; }
+.result { display: block; margin-top: 18rpx; overflow-wrap: anywhere; white-space: pre-wrap; font-family: monospace; font-size: 21rpx; }
 </style>
