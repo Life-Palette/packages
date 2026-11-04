@@ -19,7 +19,8 @@ jobs:
           node-version: 24
           cache: "pnpm"
       - run: pnpm install --frozen-lockfile
-      - run: pnpm lint
+      - name: Lint the release package
+        run: pnpm exec ultracite check packages/media
       - run: pnpm test
       - run: pnpm --filter @life-palette/uploader exec playwright install --with-deps chromium
       - run: pnpm --filter @life-palette/uploader test:browser

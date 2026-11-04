@@ -5,8 +5,12 @@ packages:
 nodeLinker: isolated
 overrides:
   # Local validation of the unpublished mini-program entry; no registry release.
-  metaprobe: link:../metaprobe
+  metaprobe: link:./metaprobe
 verifyDepsBeforeRun: false
+packageExtensions:
+  '@dcloudio/uni-mp-vite@3.0.0-5020420260813003':
+    dependencies:
+      estree-walker: 2.0.2
 allowBuilds:
   '@parcel/watcher': false
   core-js: false

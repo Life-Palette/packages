@@ -20,7 +20,6 @@ jobs:
           repository: IceyWu/metaprobe
           ref: main
           path: metaprobe
-      - run: ln -s "$GITHUB_WORKSPACE/metaprobe" "$GITHUB_WORKSPACE/../metaprobe"
       - run: corepack enable
       - uses: actions/setup-node@v4
         with:
