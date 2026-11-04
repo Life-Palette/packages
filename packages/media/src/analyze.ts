@@ -1,4 +1,4 @@
-import { MEDIA_ANALYSIS_SCHEMA_VERSION, ARTHASH_CODEC, rgbBytes, extractColors, normalizeExif, removeUndefined, type AnalyzeMediaOptions, type ImageExif, type ImageMediaAnalysis, type MediaAnalysisResult, type VideoMediaAnalysis } from "./shared";
+import { MEDIA_ANALYSIS_SCHEMA_VERSION, ARTHASH_CODEC, analyzeRasterPixels, rgbBytes, normalizeExif, removeUndefined, type AnalyzeMediaOptions, type ImageExif, type ImageMediaAnalysis, type MediaAnalysisResult, type VideoMediaAnalysis } from "./shared";
 export * from "./shared";
 /**
  * Browser-side media analysis:
@@ -7,7 +7,6 @@ export * from "./shared";
  */
 
 import { codec, encode as encodeArthash } from "arthash";
-import { encode as encodeBlurhash } from "blurhash";
 import initMetaprobe, { extractMetaFastSized } from "metaprobe";
 import { hashBlob } from "./hash";
 import {
@@ -177,14 +176,11 @@ async function analyzeImage(
   options: AnalyzeMediaOptions
 ): Promise<{ width: number; height: number; image: ImageMediaAnalysis }> {
   const raster = await decodeImage(file, options.analysisMaxDimension ?? 100);
-  const componentX = options.blurhashComponentX ?? 4;
-  const componentY = options.blurhashComponentY ?? 3;
-  const blurhash = encodeBlurhash(
+  const rasterAnalysis = analyzeRasterPixels(
     raster.rgba,
     raster.width,
     raster.height,
-    componentX,
-    componentY
+    options
   );
   const hash = await encodeArthash(
     rgbBytes(raster.rgba),
@@ -198,8 +194,7 @@ async function analyzeImage(
     image: {
       arthash: bytesToBase64(hash),
       arthash_codec: ARTHASH_CODEC,
-      blurhash,
-      colors: extractColors(raster.rgba, options.colorCount ?? 5),
+      ...rasterAnalysis,
       exif,
     },
     width: raster.sourceWidth,

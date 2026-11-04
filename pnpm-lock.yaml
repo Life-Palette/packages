@@ -307,11 +307,14 @@ importers:
       arthash:
         specifier: ^0.5.0
         version: 0.5.0
+      base64-js:
+        specifier: ^1.5.1
+        version: 1.5.1
       blurhash:
         specifier: ^2.0.5
         version: 2.0.5
       metaprobe:
-        specifier: link:../../../metaprobe
+        specifier: link:../metaprobe
         version: link:../../../metaprobe
       spark-md5:
         specifier: ^3.0.2
@@ -385,7 +388,7 @@ importers:
         specifier: ^2.0.5
         version: 2.0.5
       metaprobe:
-        specifier: link:../../../metaprobe
+        specifier: link:../metaprobe
         version: link:../../../metaprobe
       spark-md5:
         specifier: ^3.0.2

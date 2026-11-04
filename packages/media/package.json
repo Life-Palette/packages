@@ -1,7 +1,7 @@
 {
   "name": "@life-palette/media",
   "version": "0.2.4",
-  "description": "Browser-side media analysis: blurhash, arthash, dominant colors, EXIF, video technical metadata. Runs in any modern browser.",
+  "description": "Cross-platform media analysis for browser and Expo / React Native: BlurHash, ArtHash, dominant colors, EXIF, and video metadata.",
   "homepage": "https://github.com/Life-Palette/packages/tree/main/packages/media#readme",
   "bugs": "https://github.com/Life-Palette/packages/issues",
   "repository": {
@@ -13,12 +13,21 @@
   "sideEffects": false,
   "type": "module",
   "exports": {
+    "./react-native": {
+      "types": "./dist/react-native.d.mts",
+      "import": "./dist/react-native.mjs",
+      "require": "./dist/react-native.cjs"
+    },
     "./shared": {
       "types": "./dist/shared.d.mts",
       "import": "./dist/shared.mjs",
       "require": "./dist/shared.cjs"
     },
     ".": {
+      "react-native": {
+        "types": "./dist/react-native.d.mts",
+        "default": "./dist/react-native.mjs"
+      },
       "import": {
         "types": "./dist/index.d.mts",
         "default": "./dist/index.mjs"
@@ -45,8 +54,9 @@
   },
   "dependencies": {
     "arthash": "^0.5.0",
+    "base64-js": "^1.5.1",
     "blurhash": "^2.0.5",
-    "metaprobe": "^0.0.1",
+    "metaprobe": "^0.2.0",
     "spark-md5": "^3.0.2"
   },
   "devDependencies": {

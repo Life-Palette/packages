@@ -1,4 +1,5 @@
 import { readExifIso } from "./exif-fields";
+import { encode as encodeBlurhash } from "blurhash";
 
 type RecordValue = Record<string, unknown>;
 
@@ -151,6 +152,24 @@ export function extractColors(
       r: color.r,
       rank,
     }));
+}
+
+export function analyzeRasterPixels(
+  rgba: Uint8ClampedArray,
+  width: number,
+  height: number,
+  options: Pick<AnalyzeMediaOptions, "blurhashComponentX" | "blurhashComponentY" | "colorCount"> = {}
+): { blurhash: string; colors: MediaColor[] } {
+  return {
+    blurhash: encodeBlurhash(
+      rgba,
+      width,
+      height,
+      options.blurhashComponentX ?? 4,
+      options.blurhashComponentY ?? 3
+    ),
+    colors: extractColors(rgba, options.colorCount ?? 5),
+  };
 }
 
 function valueFrom(
