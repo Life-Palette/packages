@@ -1,5 +1,14 @@
 # @life-palette/uploader-uniapp
 
+## 0.2.3
+
+### Patch Changes
+
+- [`5e7aba1`](https://github.com/Life-Palette/packages/commit/5e7aba141052eb46945ec30dbcf10e32599eac13) Thanks [@IceyWu](https://github.com/IceyWu)! - Use the published metaprobe 0.2 mini-program entry instead of a local workspace override.
+- Updated dependencies [[`eaf5028`](https://github.com/Life-Palette/packages/commit/eaf502826e6cca6ff55074f2bee8661281115acd)]:
+  - @life-palette/media@0.3.0
+  - @life-palette/uploader@2.0.2
+
 ## 0.2.2
 
 ### Patch Changes

@@ -1,5 +1,11 @@
 # @life-palette/media
 
+## 0.3.0
+
+### Minor Changes
+
+- [`eaf5028`](https://github.com/Life-Palette/packages/commit/eaf502826e6cca6ff55074f2bee8661281115acd) Thanks [@IceyWu](https://github.com/IceyWu)! - Add the React Native media analysis entry and use the new React Native bridge from metaprobe 0.2.
+
 ## 0.2.4
 
 ### Patch Changes

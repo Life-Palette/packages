@@ -1,6 +1,6 @@
 {
   "name": "@life-palette/media",
-  "version": "0.2.4",
+  "version": "0.3.0",
   "description": "Cross-platform media analysis for browser and Expo / React Native: BlurHash, ArtHash, dominant colors, EXIF, and video metadata.",
   "homepage": "https://github.com/Life-Palette/packages/tree/main/packages/media#readme",
   "bugs": "https://github.com/Life-Palette/packages/issues",

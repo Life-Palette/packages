@@ -1,5 +1,12 @@
 # @life-palette/uploader
 
+## 2.0.2
+
+### Patch Changes
+
+- Updated dependencies [[`eaf5028`](https://github.com/Life-Palette/packages/commit/eaf502826e6cca6ff55074f2bee8661281115acd)]:
+  - @life-palette/media@0.3.0
+
 ## 2.0.1
 
 ### Patch Changes
