@@ -1,10 +1,13 @@
 import { toByteArray } from "base64-js";
 import { extractMeta, getImagePixels } from "metaprobe/react-native";
-import { analyzeRasterPixels, type AnalyzeMediaOptions } from "./shared";
+import { type AnalyzeMediaOptions, analyzeRasterPixels } from "./shared";
 
 export type AnalyzeMediaUriOptions = Pick<
   AnalyzeMediaOptions,
-  "analysisMaxDimension" | "blurhashComponentX" | "blurhashComponentY" | "colorCount"
+  | "analysisMaxDimension"
+  | "blurhashComponentX"
+  | "blurhashComponentY"
+  | "colorCount"
 >;
 
 /** Analyze native image pixels with the same BlurHash and color algorithm as Web. */

@@ -1,5 +1,5 @@
-import { readExifIso } from "./exif-fields";
 import { encode as encodeBlurhash } from "blurhash";
+import { readExifIso } from "./exif-fields";
 
 type RecordValue = Record<string, unknown>;
 
@@ -158,7 +158,10 @@ export function analyzeRasterPixels(
   rgba: Uint8ClampedArray,
   width: number,
   height: number,
-  options: Pick<AnalyzeMediaOptions, "blurhashComponentX" | "blurhashComponentY" | "colorCount"> = {}
+  options: Pick<
+    AnalyzeMediaOptions,
+    "blurhashComponentX" | "blurhashComponentY" | "colorCount"
+  > = {}
 ): { blurhash: string; colors: MediaColor[] } {
   return {
     blurhash: encodeBlurhash(
@@ -228,57 +231,58 @@ export function removeUndefined<T extends object>(value: T): T {
   ) as T;
 }
 
-export function normalizeExif(parsed: RecordValue | undefined, includeRaw = false): ImageExif {
-    const gps = parsed;
-    const exif: ImageExif = {
-      altitude: numberFrom(valueFrom(parsed, "GPSAltitude", "altitude")),
-      device_make: stringFrom(
-        valueFrom(parsed, "Make", "make", "DeviceManufacturer")
-      ),
-      device_model: stringFrom(
-        valueFrom(parsed, "Model", "model", "DeviceModel")
-      ),
-      exposure_time: stringFrom(
-        valueFrom(parsed, "ExposureTime", "exposure_time")
-      ),
-      f_number: stringFrom(valueFrom(parsed, "FNumber", "f_number")),
-      focal_length: stringFrom(
-        valueFrom(parsed, "FocalLength", "focal_length")
-      ),
-      iso: readExifIso(parsed),
-      lat: numberFrom(
-        valueFrom(
-          gps as RecordValue | undefined,
-          "latitude",
-          "GPSLatitude",
-          "lat"
-        ) ?? valueFrom(parsed, "latitude", "GPSLatitude")
-      ),
-      lens_model: stringFrom(
-        valueFrom(parsed, "LensModel", "Lens", "lens_model")
-      ),
-      lng: numberFrom(
-        valueFrom(
-          gps as RecordValue | undefined,
-          "longitude",
-          "GPSLongitude",
-          "lng"
-        ) ?? valueFrom(parsed, "longitude", "GPSLongitude")
-      ),
-      orientation: numberFrom(valueFrom(parsed, "Orientation", "orientation")),
-      taken_at: dateFrom(
-        valueFrom(
-          parsed,
-          "DateTimeOriginalISO",
-          "DateTimeOriginal",
-          "CreateDate",
-          "CreationDate",
-          "creation_time"
-        )
-      ),
-    };
-    if (includeRaw && parsed) {
-      exif.raw = parsed;
-    }
-    return removeUndefined(exif);
+export function normalizeExif(
+  parsed: RecordValue | undefined,
+  includeRaw = false
+): ImageExif {
+  const gps = parsed;
+  const exif: ImageExif = {
+    altitude: numberFrom(valueFrom(parsed, "GPSAltitude", "altitude")),
+    device_make: stringFrom(
+      valueFrom(parsed, "Make", "make", "DeviceManufacturer")
+    ),
+    device_model: stringFrom(
+      valueFrom(parsed, "Model", "model", "DeviceModel")
+    ),
+    exposure_time: stringFrom(
+      valueFrom(parsed, "ExposureTime", "exposure_time")
+    ),
+    f_number: stringFrom(valueFrom(parsed, "FNumber", "f_number")),
+    focal_length: stringFrom(valueFrom(parsed, "FocalLength", "focal_length")),
+    iso: readExifIso(parsed),
+    lat: numberFrom(
+      valueFrom(
+        gps as RecordValue | undefined,
+        "latitude",
+        "GPSLatitude",
+        "lat"
+      ) ?? valueFrom(parsed, "latitude", "GPSLatitude")
+    ),
+    lens_model: stringFrom(
+      valueFrom(parsed, "LensModel", "Lens", "lens_model")
+    ),
+    lng: numberFrom(
+      valueFrom(
+        gps as RecordValue | undefined,
+        "longitude",
+        "GPSLongitude",
+        "lng"
+      ) ?? valueFrom(parsed, "longitude", "GPSLongitude")
+    ),
+    orientation: numberFrom(valueFrom(parsed, "Orientation", "orientation")),
+    taken_at: dateFrom(
+      valueFrom(
+        parsed,
+        "DateTimeOriginalISO",
+        "DateTimeOriginal",
+        "CreateDate",
+        "CreationDate",
+        "creation_time"
+      )
+    ),
+  };
+  if (includeRaw && parsed) {
+    exif.raw = parsed;
+  }
+  return removeUndefined(exif);
 }

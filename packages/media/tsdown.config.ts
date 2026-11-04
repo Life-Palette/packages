@@ -7,6 +7,13 @@ export default defineConfig({
   format: ["esm", "cjs"],
   // SparkMD5 / mediainfo.js / arthash / blurhash / exifr are pulled in by
   // dynamic imports — keep them bundled because consumers don't install them.
-  noExternal: ["spark-md5", "mediainfo.js", "arthash", "blurhash", "exifr", "base64-js"],
+  noExternal: [
+    "spark-md5",
+    "mediainfo.js",
+    "arthash",
+    "blurhash",
+    "exifr",
+    "base64-js",
+  ],
   treeshake: true,
 });
