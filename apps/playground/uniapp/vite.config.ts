@@ -5,32 +5,50 @@ import { defineConfig } from "vite";
 export default defineConfig({
   plugins: [uni()],
   resolve: {
-    alias: {
-      "@life-palette/media": resolve(
-        import.meta.dirname,
-        "../../../packages/media/src/index.ts"
-      ),
-      "@life-palette/media/shared": resolve(
-        import.meta.dirname,
-        "../../../packages/media/src/shared.ts"
-      ),
-      "@life-palette/uploader": resolve(
-        import.meta.dirname,
-        "../../../packages/uploader/src/index.ts"
-      ),
-      "@life-palette/uploader-uniapp": resolve(
-        import.meta.dirname,
-        "../../../packages/uploader-uniapp/src/index.ts"
-      ),
-      "@life-palette/uploader-uniapp/browser": resolve(
-        import.meta.dirname,
-        "../../../packages/uploader-uniapp/src/browser.ts"
-      ),
-      "@life-palette/uploader/shared": resolve(
-        import.meta.dirname,
-        "../../../packages/uploader/src/shared.ts"
-      ),
-    },
+    alias: [
+      {
+        find: /^@life-palette\/media\/shared$/,
+        replacement: resolve(
+          import.meta.dirname,
+          "../../../packages/media/src/shared.ts"
+        ),
+      },
+      {
+        find: /^@life-palette\/media$/,
+        replacement: resolve(
+          import.meta.dirname,
+          "../../../packages/media/src/index.ts"
+        ),
+      },
+      {
+        find: /^@life-palette\/uploader\/shared$/,
+        replacement: resolve(
+          import.meta.dirname,
+          "../../../packages/uploader/src/shared.ts"
+        ),
+      },
+      {
+        find: /^@life-palette\/uploader$/,
+        replacement: resolve(
+          import.meta.dirname,
+          "../../../packages/uploader/src/index.ts"
+        ),
+      },
+      {
+        find: /^@life-palette\/uploader-uniapp\/browser$/,
+        replacement: resolve(
+          import.meta.dirname,
+          "../../../packages/uploader-uniapp/src/browser.ts"
+        ),
+      },
+      {
+        find: /^@life-palette\/uploader-uniapp$/,
+        replacement: resolve(
+          import.meta.dirname,
+          "../../../packages/uploader-uniapp/src/index.ts"
+        ),
+      },
+    ],
     preserveSymlinks: false,
   },
 });
