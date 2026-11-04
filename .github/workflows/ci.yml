@@ -13,25 +13,13 @@ jobs:
     runs-on: ubuntu-latest
     steps:
       - uses: actions/checkout@v4
-      - uses: actions/checkout@v4
-        with:
-          repository: IceyWu/metaprobe
-          ref: main
-          path: metaprobe
       - run: corepack enable
       - uses: actions/setup-node@v4
         with:
           node-version: 24
           cache: "pnpm"
       - run: pnpm install --frozen-lockfile
-      - name: Inspect metaprobe link
-        run: |
-          ls -ld packages/media/node_modules/metaprobe
-          readlink packages/media/node_modules/metaprobe
-          readlink -f packages/media/node_modules/metaprobe
-          test -f packages/media/node_modules/metaprobe/package.json
-      - name: Lint the release package
-        run: pnpm exec ultracite check packages/media
+      - run: pnpm lint
       - run: pnpm test
       - run: pnpm --filter @life-palette/uploader exec playwright install --with-deps chromium
       - run: pnpm --filter @life-palette/uploader test:browser

@@ -106,9 +106,7 @@ settings:
   excludeLinksFromLockfile: false
 
 overrides:
-  metaprobe: link:./metaprobe
-
-packageExtensionsChecksum: sha256-HBndCnII49XwG93Fvbcqt97/MhxLsIFCEtQIzMGW2bg=
+  metaprobe: link:../metaprobe
 
 importers:
 
@@ -316,8 +314,8 @@ importers:
         specifier: ^2.0.5
         version: 2.0.5
       metaprobe:
-        specifier: link:metaprobe
-        version: link:../../metaprobe
+        specifier: link:../metaprobe
+        version: link:../../../metaprobe
       spark-md5:
         specifier: ^3.0.2
         version: 3.0.2
@@ -390,8 +388,8 @@ importers:
         specifier: ^2.0.5
         version: 2.0.5
       metaprobe:
-        specifier: link:metaprobe
-        version: link:../../metaprobe
+        specifier: link:../metaprobe
+        version: link:../../../metaprobe
       spark-md5:
         specifier: ^3.0.2
         version: 3.0.2
@@ -7825,7 +7823,6 @@ snapshots:
       '@vue/compiler-sfc': 3.4.21
       '@vue/shared': 3.4.21
       debug: 4.3.7(supports-color@7.2.0)
-      estree-walker: 2.0.2
     transitivePeerDependencies:
       - '@nuxt/kit'
       - '@vueuse/core'

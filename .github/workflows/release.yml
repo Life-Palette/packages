@@ -20,6 +20,7 @@ jobs:
           repository: IceyWu/metaprobe
           ref: main
           path: metaprobe
+      - run: ln -s "$GITHUB_WORKSPACE/metaprobe" "$GITHUB_WORKSPACE/../metaprobe"
       - run: corepack enable
       - uses: actions/setup-node@v4
         with:
@@ -27,14 +28,7 @@ jobs:
           cache: "pnpm"
           registry-url: "https://registry.npmjs.org"
       - run: pnpm install --frozen-lockfile
-      - name: Inspect metaprobe link
-        run: |
-          ls -ld packages/media/node_modules/metaprobe
-          readlink packages/media/node_modules/metaprobe
-          readlink -f packages/media/node_modules/metaprobe
-          test -f packages/media/node_modules/metaprobe/package.json
-      - name: Lint the release package
-        run: pnpm exec ultracite check packages/media
+      - run: pnpm lint
       - run: pnpm test
       - run: pnpm --filter @life-palette/uploader exec playwright install --with-deps chromium
       - run: pnpm --filter @life-palette/uploader test:browser
