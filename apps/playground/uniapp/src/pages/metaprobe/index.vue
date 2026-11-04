@@ -1,46 +1,66 @@
 <script lang="ts">
-import { defineComponent } from "vue";
 import type { MediaAnalysisResult } from "@life-palette/uploader-uniapp";
+import { defineComponent } from "vue";
+import {
+  runMetaprobeChecks,
+  type ValidationReport,
+} from "../../utils/metaprobe";
 import { analyzeMedia } from "../../utils/upload-workflow";
-import { runMetaprobeChecks, type ValidationReport } from "../../utils/metaprobe";
 
 export default defineComponent({
-  data() {
-    return {
-      busy: false,
-      status: "等待选择文件",
-      error: "",
-      progress: 0,
-      report: null as ValidationReport | null,
-      result: null as MediaAnalysisResult | null,
-      expandedSections: [] as string[],
-    };
-  },
   computed: {
-    passedChecks(): number {
-      return this.report?.checks.filter((item) => item.passed).length ?? 0;
-    },
     failedChecks(): number {
       return this.report?.checks.filter((item) => !item.passed).length ?? 0;
     },
     formattedResult(): string {
       return this.result ? JSON.stringify(this.result, null, 2) : "";
     },
+    passedChecks(): number {
+      return this.report?.checks.filter((item) => item.passed).length ?? 0;
+    },
+  },
+  data() {
+    return {
+      busy: false,
+      error: "",
+      expandedSections: [] as string[],
+      progress: 0,
+      report: null as ValidationReport | null,
+      result: null as MediaAnalysisResult | null,
+      status: "等待选择文件",
+    };
   },
   methods: {
-    async runValidation() {
+    async analyzeFile(path: string, name: string, visualAnalysis = true) {
       this.busy = true;
       this.error = "";
-      this.status = "正在运行解析器自检";
+      this.progress = 0;
+      this.status = "正在读取文件";
+      this.report = null;
+      this.result = null;
       try {
-        const report = await runMetaprobeChecks();
-        this.report = report;
-        this.status = report.status === "passed" ? "解析器自检通过" : "部分检查未通过";
-        if (report.error) this.error = report.error;
-        return report;
-      } catch (error) {
-        this.error = error instanceof Error ? error.message : String(error);
-        this.status = "自检失败";
+        const metadata = await analyzeMedia(
+          { name, path },
+          { platform: "mp" },
+          {
+            includeRawExif: true,
+            onProgress: ({ stage, percent }) => {
+              this.progress = percent;
+              this.status = this.progressLabel(stage);
+            },
+            visualAnalysis,
+          }
+        );
+        this.result = metadata;
+        this.status = "文件解析完成";
+        return metadata;
+      } catch (reason) {
+        console.error("[metaprobe] analyzeMedia failed", {
+          message: reason instanceof Error ? reason.message : String(reason),
+          name: reason instanceof Error ? reason.name : "UnknownError",
+        });
+        this.error = reason instanceof Error ? reason.message : String(reason);
+        this.status = "解析失败";
         return null;
       } finally {
         this.busy = false;
@@ -50,6 +70,11 @@ export default defineComponent({
       this.error = "";
       uni.chooseMedia({
         count: 1,
+        fail: (reason) => {
+          console.error("[metaprobe] chooseMedia failed", reason.errMsg);
+          this.error = reason.errMsg || "无法打开文件选择器，请重试";
+          this.status = "未选择文件";
+        },
         mediaType: ["image", "video"],
         sizeType: ["original"],
         sourceType: ["album"],
@@ -60,76 +85,64 @@ export default defineComponent({
             files: tempFiles.map(({ fileType, size }) => ({ fileType, size })),
           });
           if (file) {
-            const name = file.tempFilePath.split("/").pop() || `media.${file.fileType}`;
+            const name =
+              file.tempFilePath.split("/").pop() || `media.${file.fileType}`;
             await this.analyzeFile(file.tempFilePath, name);
           }
         },
-        fail: (reason) => {
-          console.error("[metaprobe] chooseMedia failed", reason.errMsg);
-          this.error = reason.errMsg || "无法打开文件选择器，请重试";
-          this.status = "未选择文件";
+      });
+    },
+    copyText(value: string | undefined, label: string) {
+      if (!value) {
+        return;
+      }
+      uni.setClipboardData({
+        data: value,
+        fail: () => {
+          this.error = `复制${label}失败，请长按内容选择`;
+        },
+        success: () => {
+          this.status = `${label}已复制`;
         },
       });
     },
-    async analyzeFile(path: string, name: string, visualAnalysis = true) {
+    formatSize(bytes: number) {
+      if (bytes < 1024) {
+        return `${bytes} B`;
+      }
+      if (bytes < 1024 * 1024) {
+        return `${(bytes / 1024).toFixed(1)} KB`;
+      }
+      return `${(bytes / (1024 * 1024)).toFixed(2)} MB`;
+    },
+    progressLabel(stage: string) {
+      const labels: Record<string, string> = {
+        analyze: "整理媒体信息",
+        decode: "读取图像像素",
+        md5: "计算文件校验值",
+      };
+      return labels[stage] ?? "正在解析文件";
+    },
+    async runValidation() {
       this.busy = true;
       this.error = "";
-      this.progress = 0;
-      this.status = "正在读取文件";
-      this.report = null;
-      this.result = null;
+      this.status = "正在运行解析器自检";
       try {
-        const metadata = await analyzeMedia(
-          { path, name },
-          { platform: "mp" },
-          {
-            includeRawExif: true,
-            visualAnalysis,
-            onProgress: ({ stage, percent }) => {
-              this.progress = percent;
-              this.status = this.progressLabel(stage);
-            },
-          }
-        );
-        this.result = metadata;
-        this.status = "文件解析完成";
-        return metadata;
-      } catch (reason) {
-        console.error("[metaprobe] analyzeMedia failed", {
-          name: reason instanceof Error ? reason.name : "UnknownError",
-          message: reason instanceof Error ? reason.message : String(reason),
-        });
-        this.error = reason instanceof Error ? reason.message : String(reason);
-        this.status = "解析失败";
+        const report = await runMetaprobeChecks();
+        this.report = report;
+        this.status =
+          report.status === "passed" ? "解析器自检通过" : "部分检查未通过";
+        if (report.error) {
+          this.error = report.error;
+        }
+        return report;
+      } catch (error) {
+        this.error = error instanceof Error ? error.message : String(error);
+        this.status = "自检失败";
         return null;
       } finally {
         this.busy = false;
       }
-    },
-    progressLabel(stage: string) {
-      const labels: Record<string, string> = {
-        md5: "计算文件校验值",
-        decode: "读取图像像素",
-        analyze: "整理媒体信息",
-      };
-      return labels[stage] ?? "正在解析文件";
-    },
-    formatSize(bytes: number) {
-      if (bytes < 1024) return `${bytes} B`;
-      if (bytes < 1024 * 1024) return `${(bytes / 1024).toFixed(1)} KB`;
-      return `${(bytes / (1024 * 1024)).toFixed(2)} MB`;
-    },
-    copyText(value: string | undefined, label: string) {
-      if (!value) return;
-      uni.setClipboardData({
-        data: value,
-        success: () => {
-          this.status = `${label}已复制`;
-        },
-        fail: () => {
-          this.error = `复制${label}失败，请长按内容选择`;
-        },
-      });
     },
   },
 });

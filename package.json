@@ -7,7 +7,7 @@
   "license": "MIT",
   "type": "module",
   "scripts": {
-    "build": "pnpm -r --filter \"./packages/*\" run build",
+    "build": "pnpm --workspace-concurrency=1 -r --filter \"./packages/*\" run build",
     "changeset": "changeset",
     "dev": "pnpm --parallel -r run dev",
     "docs:build": "pnpm --filter ./apps/docs build",
@@ -20,7 +20,7 @@
     "play:uniapp:weixin": "pnpm --filter @life-palette/playground-uniapp dev:mp-weixin",
     "play:web": "pnpm --filter @life-palette/playground-web dev",
     "release": "pnpm build && changeset publish",
-    "test": "pnpm -r run test",
+    "test": "pnpm --workspace-concurrency=1 -r run test",
     "version": "changeset version && node scripts/sync-changelog.js"
   },
   "devDependencies": {
@@ -31,5 +31,5 @@
     "typescript": "^5.9.3",
     "ultracite": "^7.11.1"
   },
-  "packageManager": "pnpm@12.2.1"
+  "packageManager": "pnpm@12.16.1"
 }

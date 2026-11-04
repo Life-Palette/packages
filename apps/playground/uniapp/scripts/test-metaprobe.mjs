@@ -5,8 +5,11 @@ import { setTimeout as delay } from "node:timers/promises";
 import { fileURLToPath } from "node:url";
 
 import { connectWechat } from "./wechat-automation.mjs";
+
 const { call, close } = await connectWechat();
-const fixtureAsset = process.env.METAPROBE_FIXTURE_ASSET || "static/uploader-uniapp/metadata-fixture.jpg";
+const fixtureAsset =
+  process.env.METAPROBE_FIXTURE_ASSET ||
+  "static/uploader-uniapp/metadata-fixture.jpg";
 
 try {
   let page;
@@ -130,7 +133,7 @@ try {
       );
     }
     await call("App.callWxMethod", {
-      args: [{ scrollTop: 1050, duration: 0 }],
+      args: [{ duration: 0, scrollTop: 1050 }],
       method: "pageScrollTo",
     });
     await delay(300);

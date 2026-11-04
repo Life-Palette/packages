@@ -25,16 +25,30 @@ describe("native file readers", () => {
     const size = 3 * 1024 * 1024 + 9;
     const read = vi.fn((options) => {
       expect(options.length).toBeLessThanOrEqual(1024 * 1024);
-      new Uint8Array(options.arrayBuffer).fill(Math.floor(options.position / (1024 * 1024)) + 1);
-      options.success({ bytesRead: options.length, arrayBuffer: options.arrayBuffer });
+      new Uint8Array(options.arrayBuffer).fill(
+        Math.floor(options.position / (1024 * 1024)) + 1
+      );
+      options.success({
+        arrayBuffer: options.arrayBuffer,
+        bytesRead: options.length,
+      });
     });
     const close = vi.fn((options) => options.success({}));
-    const reader = await openUploadFile({ path: "/large" }, { platform: "mp", uni: {
-      request: vi.fn(), getFileSystemManager: () => ({
-        stat: (options) => options.success({ stats: { size } }),
-        open: (options) => options.success({ fd: "large-fd" }), read, close,
-      }),
-    } });
+    const reader = await openUploadFile(
+      { path: "/large" },
+      {
+        platform: "mp",
+        uni: {
+          getFileSystemManager: () => ({
+            close,
+            open: (options) => options.success({ fd: "large-fd" }),
+            read,
+            stat: (options) => options.success({ stats: { size } }),
+          }),
+          request: vi.fn(),
+        },
+      }
+    );
     const bytes = new Uint8Array(await reader.read(0, size));
     expect(read).toHaveBeenCalledTimes(4);
     expect(bytes[0]).toBe(1);

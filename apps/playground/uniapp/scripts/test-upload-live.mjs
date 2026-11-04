@@ -1,21 +1,33 @@
-import assert from 'node:assert/strict'
-import { mkdir, writeFile } from 'node:fs/promises'
-import { connectWechat } from './wechat-automation.mjs'
+import assert from "node:assert/strict";
+import { mkdir, writeFile } from "node:fs/promises";
+import { connectWechat } from "./wechat-automation.mjs";
 
-const base = process.env.LP_API_BASE || 'http://localhost:9530/api/v1'
-assert.ok(process.env.LP_TEST_ACCOUNT && process.env.LP_TEST_PASSWORD, 'Supply LP_TEST_ACCOUNT and LP_TEST_PASSWORD in this process environment')
-const response = await fetch(`${base}/auth/login`, { method: 'POST', headers: { 'Content-Type': 'application/json' }, body: JSON.stringify({ account: process.env.LP_TEST_ACCOUNT, password: process.env.LP_TEST_PASSWORD }) })
-const login = await response.json()
-assert.equal(response.status, 200, login.message || 'Login failed')
-const token = login.data?.access_token
-assert.ok(token, 'Login response is missing access_token')
-console.log('Authenticated against local lp-server (token remains in memory).')
-const { call, close } = await connectWechat()
-const results = []
+const base = process.env.LP_API_BASE || "http://localhost:9530/api/v1";
+assert.ok(
+  process.env.LP_TEST_ACCOUNT && process.env.LP_TEST_PASSWORD,
+  "Supply LP_TEST_ACCOUNT and LP_TEST_PASSWORD in this process environment"
+);
+const loginResponse = await fetch(`${base}/auth/login`, {
+  body: JSON.stringify({
+    account: process.env.LP_TEST_ACCOUNT,
+    password: process.env.LP_TEST_PASSWORD,
+  }),
+  headers: { "Content-Type": "application/json" },
+  method: "POST",
+});
+const login = await loginResponse.json();
+assert.equal(loginResponse.status, 200, login.message || "Login failed");
+const token = login.data?.access_token;
+assert.ok(token, "Login response is missing access_token");
+console.log("Authenticated against local lp-server (token remains in memory).");
+const { call, close } = await connectWechat();
+const results = [];
 try {
-  for (const testCase of ['direct', 'multipart', 'compression']) {
-    console.log(`Testing ${testCase} with the native mini-program network/filesystem...`)
-    const response = await call('App.callFunction', {
+  for (const testCase of ["direct", "multipart", "compression"]) {
+    console.log(
+      `Testing ${testCase} with the native mini-program network/filesystem...`
+    );
+    const response = await call("App.callFunction", {
       args: [base, token, testCase],
       functionDeclaration: `async function (base, token, testCase) {
         const api = require("common/vendor.js").index;
@@ -96,17 +108,28 @@ try {
         }
         return summary;
       }`,
-    })
-    const result = response.result
-    results.push(result)
-    console.log(JSON.stringify(result, null, 2))
-    await mkdir('dist/upload-validation', { recursive: true })
-    await writeFile('dist/upload-validation/report.json', JSON.stringify({ base, results }, null, 2))
-    assert.equal(result.error, undefined, result.error)
-    assert.ok(Object.values(result.checks).every(Boolean), `Failed checks for ${testCase}`)
-    assert.ok(result.cleanup.every(item => item.removed), 'Test file cleanup failed')
+    });
+    const result = response.result;
+    results.push(result);
+    console.log(JSON.stringify(result, null, 2));
+    await mkdir("dist/upload-validation", { recursive: true });
+    await writeFile(
+      "dist/upload-validation/report.json",
+      JSON.stringify({ base, results }, null, 2)
+    );
+    assert.equal(result.error, undefined, result.error);
+    assert.ok(
+      Object.values(result.checks).every(Boolean),
+      `Failed checks for ${testCase}`
+    );
+    assert.ok(
+      result.cleanup.every((item) => item.removed),
+      "Test file cleanup failed"
+    );
   }
-  console.log('PASS: real direct/multipart/instant uploads, compression, persisted metadata and cleanup.')
+  console.log(
+    "PASS: real direct/multipart/instant uploads, compression, persisted metadata and cleanup."
+  );
 } finally {
-  close()
+  close();
 }

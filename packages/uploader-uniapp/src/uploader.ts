@@ -80,6 +80,7 @@ export function createUploader(config: UploaderConfig) {
     return [];
   }
 
+  // biome-ignore lint/complexity/noExcessiveCognitiveComplexity: Keep upload lifecycle and cleanup paired across platform branches.
   async function upload(
     input: UploadFile | string,
     options: UploadOptions = {}
@@ -100,8 +101,14 @@ export function createUploader(config: UploaderConfig) {
       if (options.metadata && options.metadata.basic.size !== reader.size) {
         throw new UploadError("Metadata size does not match the uploaded file");
       }
-      if (options.checksum && options.metadata?.basic.md5 && options.checksum !== options.metadata.basic.md5) {
-        throw new UploadError("Metadata MD5 does not match the supplied checksum");
+      if (
+        options.checksum &&
+        options.metadata?.basic.md5 &&
+        options.checksum !== options.metadata.basic.md5
+      ) {
+        throw new UploadError(
+          "Metadata MD5 does not match the supplied checksum"
+        );
       }
       const checksum = await getChecksum(reader, options);
       if (!checksum) {
@@ -130,7 +137,11 @@ export function createUploader(config: UploaderConfig) {
       const result = await transport.request<UploadedFile>(
         `/uploads/${encodeURIComponent(session.id)}/complete`,
         "POST",
-        { is_private: options.isPrivate ?? false, parts, ...(options.metadata ? { metadata: options.metadata } : {}) },
+        {
+          is_private: options.isPrivate ?? false,
+          parts,
+          ...(options.metadata ? { metadata: options.metadata } : {}),
+        },
         options.cancellation
       );
       progress?.({ percent: 100, stage: "completing" });
@@ -155,7 +166,9 @@ export function createUploader(config: UploaderConfig) {
     options: UploadOptions = {}
   ): Promise<UploadedFile[]> {
     if (files.length > 1 && options.metadata) {
-      throw new UploadError("Analyze each file and upload it with its own metadata");
+      throw new UploadError(
+        "Analyze each file and upload it with its own metadata"
+      );
     }
     const results: UploadedFile[] = [];
     for (const file of files) {

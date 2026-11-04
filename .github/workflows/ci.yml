@@ -20,10 +20,10 @@ jobs:
           cache: "pnpm"
       - run: pnpm install --frozen-lockfile
       - run: pnpm lint
+      - run: pnpm build
       - run: pnpm test
       - run: pnpm --filter @life-palette/uploader exec playwright install --with-deps chromium
       - run: pnpm --filter @life-palette/uploader test:browser
-      - run: pnpm build
       - run: pnpm --filter @life-palette/playground-web build
       - run: pnpm --filter @life-palette/uploader-uniapp typecheck
       - run: pnpm --filter @life-palette/playground-uniapp type-check

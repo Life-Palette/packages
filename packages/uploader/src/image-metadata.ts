@@ -155,7 +155,11 @@ function isAnimated(chunk: Chunk) {
   if (chunk.type === "exif") {
     let content = "";
     for (let start = 0; start < chunk.bytes.length; start += 8192) {
-      content += text(chunk.bytes, start, Math.min(8192, chunk.bytes.length - start));
+      content += text(
+        chunk.bytes,
+        start,
+        Math.min(8192, chunk.bytes.length - start)
+      );
     }
     return content.includes("MotionPhoto") || content.includes("MicroVideo");
   }

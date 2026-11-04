@@ -1,45 +1,66 @@
-import { createUploader, prepareUpload, type UploadCancellation, type UploadFile, type UniPlatform } from "@life-palette/uploader-uniapp";
+import {
+  createUploader,
+  prepareUpload,
+  type UniPlatform,
+  type UploadCancellation,
+  type UploadFile,
+} from "@life-palette/uploader-uniapp";
 // #ifdef H5
 import { createBrowserMediaAdapter } from "@life-palette/uploader-uniapp/browser";
 // #endif
 
 export interface UploadWorkflowOptions {
   apiBaseUrl: string;
-  token: string;
-  platform: UniPlatform;
-  isPrivate?: boolean;
-  compress?: boolean;
-  maxSizeMB?: number;
   cancellation?: UploadCancellation;
+  compress?: boolean;
+  isPrivate?: boolean;
+  maxSizeMB?: number;
   onProgress?: (progress: { stage: string; percent: number }) => void;
+  platform: UniPlatform;
+  token: string;
 }
 
-export async function uploadMediaFile(file: UploadFile, options: UploadWorkflowOptions) {
+export async function uploadMediaFile(
+  file: UploadFile,
+  options: UploadWorkflowOptions
+) {
   let browser = {};
   // #ifdef H5
   browser = createBrowserMediaAdapter();
   // #endif
-  const prepared = await prepareUpload(file, { platform: options.platform, ...browser }, {
-    compression: options.compress ? {
-      maxSizeMB: options.maxSizeMB ?? 1,
-      cancellation: options.cancellation,
-      onProgress: (percent) => options.onProgress?.({ stage: "compressing", percent }),
-    } : false,
-    analysis: {
-      cancellation: options.cancellation,
-      onProgress: ({ stage, percent }) => options.onProgress?.({ stage: `analyzing:${stage}`, percent }),
-    },
-  });
+  const prepared = await prepareUpload(
+    file,
+    { platform: options.platform, ...browser },
+    {
+      analysis: {
+        cancellation: options.cancellation,
+        onProgress: ({ stage, percent }) =>
+          options.onProgress?.({ percent, stage: `analyzing:${stage}` }),
+      },
+      compression: options.compress
+        ? {
+            cancellation: options.cancellation,
+            maxSizeMB: options.maxSizeMB ?? 1,
+            onProgress: (percent) =>
+              options.onProgress?.({ percent, stage: "compressing" }),
+          }
+        : false,
+    }
+  );
   try {
-    const uploader = createUploader({ apiBaseUrl: options.apiBaseUrl, getToken: () => options.token || null, platform: options.platform });
+    const uploader = createUploader({
+      apiBaseUrl: options.apiBaseUrl,
+      getToken: () => options.token || null,
+      platform: options.platform,
+    });
     const uploaded = await uploader.upload(prepared.file, {
-      checksum: prepared.checksum,
-      metadata: prepared.metadata,
       cancellation: options.cancellation,
+      checksum: prepared.checksum,
       isPrivate: options.isPrivate,
+      metadata: prepared.metadata,
       onProgress: options.onProgress,
     });
-    return { uploaded, metadata: prepared.metadata };
+    return { metadata: prepared.metadata, uploaded };
   } finally {
     await prepared.dispose();
   }

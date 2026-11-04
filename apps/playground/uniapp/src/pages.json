@@ -31,9 +31,24 @@
     "backgroundColor": "#ffffff",
     "borderStyle": "white",
     "list": [
-      { "pagePath": "pages/index/index", "text": "上传演示", "iconPath": "static/tabbar/upload-gray.png", "selectedIconPath": "static/tabbar/upload-blue.png" },
-      { "pagePath": "pages/metaprobe/index", "text": "媒体解析", "iconPath": "static/tabbar/metadata-gray.png", "selectedIconPath": "static/tabbar/metadata-blue.png" },
-      { "pagePath": "pages/live-photo-test/index", "text": "实况测试", "iconPath": "static/tabbar/live-gray.png", "selectedIconPath": "static/tabbar/live-blue.png" }
+      {
+        "pagePath": "pages/index/index",
+        "text": "上传演示",
+        "iconPath": "static/tabbar/upload-gray.png",
+        "selectedIconPath": "static/tabbar/upload-blue.png"
+      },
+      {
+        "pagePath": "pages/metaprobe/index",
+        "text": "媒体解析",
+        "iconPath": "static/tabbar/metadata-gray.png",
+        "selectedIconPath": "static/tabbar/metadata-blue.png"
+      },
+      {
+        "pagePath": "pages/live-photo-test/index",
+        "text": "实况测试",
+        "iconPath": "static/tabbar/live-gray.png",
+        "selectedIconPath": "static/tabbar/live-blue.png"
+      }
     ]
   },
   "globalStyle": {

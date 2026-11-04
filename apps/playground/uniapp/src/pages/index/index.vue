@@ -221,18 +221,20 @@ async function upload(form: boolean) {
         responses.push(await task.result);
       } else {
         responses.push(
-          (await uploadMediaFile(file, {
-            apiBaseUrl: apiBaseUrl.value,
-            token: auth,
-            platform,
-            compress: compressBeforeUpload.value,
-            cancellation,
-            isPrivate: isPrivate.value,
-            onProgress: (progress) => {
-              stage.value = `${index + 1}/${files.value.length} · ${progress.stage}`;
-              percent.value = progress.percent;
-            },
-          })).uploaded
+          (
+            await uploadMediaFile(file, {
+              apiBaseUrl: apiBaseUrl.value,
+              cancellation,
+              compress: compressBeforeUpload.value,
+              isPrivate: isPrivate.value,
+              onProgress: (progress) => {
+                stage.value = `${index + 1}/${files.value.length} · ${progress.stage}`;
+                percent.value = progress.percent;
+              },
+              platform,
+              token: auth,
+            })
+          ).uploaded
         );
       }
     }

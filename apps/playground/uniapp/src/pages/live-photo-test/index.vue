@@ -1,88 +1,51 @@
 <script lang="ts">
+import {
+  createTemporaryFile,
+  openUploadFile,
+  type TemporaryFile,
+} from "@life-palette/uploader-uniapp";
 import { defineComponent } from "vue";
-import { createTemporaryFile, openUploadFile, type TemporaryFile } from "@life-palette/uploader-uniapp";
+import {
+  inspectLivePhotoBytes as inspectLivePhoto,
+  type LivePhotoForensics,
+} from "../../utils/live-photo-forensics";
 import { analyzeMedia } from "../../utils/upload-workflow";
-import { inspectLivePhoto, type LivePhotoForensics } from "metaprobe/miniprogram";
 
 interface PickedPhoto {
+  fields: string[];
   name: string;
   path: string;
-  pickerSize?: number;
   pickerByteSize?: number;
-  fields: string[];
+  pickerSize?: number;
 }
 
 export default defineComponent({
+  beforeUnmount() {
+    this.releaseExtractedVideo();
+  },
   data() {
     return {
       busy: false,
-      status: "请选择 iPhone 相册中的实况照片原图",
       error: "",
-      photo: null as PickedPhoto | null,
+      extractedPhotoPath: "",
+      extractedPhotoText: "",
+      extractedVideoPath: "",
+      extractedVideoText: "",
       forensics: null as LivePhotoForensics | null,
       forensicsText: "",
       metaprobeText: "",
-      extractedVideoPath: "",
-      extractedVideoText: "",
-      extractedPhotoPath: "",
-      extractedPhotoText: "",
-      videoTemp: null as TemporaryFile | null,
+      photo: null as PickedPhoto | null,
       photoTemp: null as TemporaryFile | null,
+      status: "请选择 iPhone 相册中的实况照片原图",
+      videoTemp: null as TemporaryFile | null,
     };
   },
   methods: {
-    choosePhoto() {
-      this.error = "";
-      this.status = "正在请求相册原图";
-      uni.chooseMedia({
-        count: 1,
-        mediaType: ["image"],
-        sizeType: ["original"],
-        sourceType: ["album"],
-        success: ({ tempFiles }) => {
-          const selected = tempFiles[0];
-          if (!selected) {
-            this.status = "选择器没有返回文件";
-            return;
-          }
-          const fields = selected as unknown as Record<string, unknown>;
-          const path = selected.tempFilePath;
-          const name = path.split("/").pop() || `selected.${selected.fileType || "img"}`;
-          this.photo = {
-            name,
-            path,
-            pickerSize: typeof fields.size === "number" ? fields.size : undefined,
-            pickerByteSize: typeof fields.byteSize === "number" ? fields.byteSize : undefined,
-            fields: Object.keys(fields),
-          };
-          this.forensics = null;
-          this.forensicsText = "";
-          this.metaprobeText = "";
-          this.extractedVideoPath = "";
-          this.extractedVideoText = "";
-          this.extractedPhotoPath = "";
-          this.extractedPhotoText = "";
-          void this.releaseExtractedVideo();
-          this.status = "已取得选择器返回的原图；尚未上传";
-          console.info("[live-photo] picker result", JSON.stringify({
-            name,
-            path,
-            fileType: selected.fileType,
-            pickerSize: fields.size,
-            pickerByteSize: fields.byteSize,
-            returnedFields: Object.keys(fields),
-            rawResult: fields,
-          }, null, 2));
-        },
-        fail: (reason) => {
-          this.status = "相册选择未完成";
-          this.error = reason.errMsg || "相册选择失败";
-          console.error("[live-photo] picker failed", JSON.stringify(reason));
-        },
-      });
-    },
+    // biome-ignore lint/complexity/noExcessiveCognitiveComplexity: Diagnostic UI reports each original media container and extraction step.
     async analyzePhoto() {
-      if (!this.photo || this.busy) return;
+      if (!this.photo || this.busy) {
+        return;
+      }
       this.busy = true;
       this.error = "";
       this.status = "正在读取原始字节并检查容器结构";
@@ -93,7 +56,7 @@ export default defineComponent({
       await this.releaseExtractedVideo();
       try {
         const photo = this.photo;
-        const file = { path: photo.path, name: photo.name };
+        const file = { name: photo.name, path: photo.path };
         const reader = await openUploadFile(file, { platform: "mp" });
         let forensic: LivePhotoForensics;
         try {
@@ -108,100 +71,177 @@ export default defineComponent({
         }
         this.forensics = forensic;
         const diagnostics: Record<string, unknown> = {
-          picker: {
-            name: photo.name,
-            path: photo.path,
-            returnedSize: photo.pickerSize,
-            returnedByteSize: photo.pickerByteSize,
-            returnedFields: photo.fields,
-          },
+          extractedVideo: forensic.embeddedVideoSize
+            ? {
+                bytes: forensic.embeddedVideoSize,
+                offset: forensic.embeddedVideoOffset,
+              }
+            : null,
           filesystem: {
             actualBytesRead: forensic.fileSize,
             actualSizeMiB: (forensic.fileSize / (1024 * 1024)).toFixed(3),
-            first32BytesHex: forensic.headHex,
-            last32BytesHex: forensic.tailHex,
-            jpegEoiOffset: forensic.jpegEoiOffset,
             bytesAfterJpegEoi: forensic.bytesAfterJpeg,
-            jpegSegments: forensic.jpegSegments,
-            exifDirectoryEntries: forensic.exifDirectoryEntries,
             embeddedSignatures: forensic.embeddedSignatures,
+            exifDirectoryEntries: forensic.exifDirectoryEntries,
+            first32BytesHex: forensic.headHex,
+            jpegEoiOffset: forensic.jpegEoiOffset,
+            jpegSegments: forensic.jpegSegments,
+            last32BytesHex: forensic.tailHex,
             videoCandidates: forensic.videoCandidates,
           },
           livePhotoMarkersFound: forensic.markers,
+          picker: {
+            name: photo.name,
+            path: photo.path,
+            returnedByteSize: photo.pickerByteSize,
+            returnedFields: photo.fields,
+            returnedSize: photo.pickerSize,
+          },
           videoContainerBoxes: forensic.videoBoxes,
-          extractedVideo: forensic.embeddedVideoSize
-            ? { offset: forensic.embeddedVideoOffset, bytes: forensic.embeddedVideoSize }
-            : null,
         };
         this.forensicsText = JSON.stringify(diagnostics, null, 2);
-        console.info("[live-photo] raw file + container diagnostics", this.forensicsText);
+        console.info(
+          "[live-photo] raw file + container diagnostics",
+          this.forensicsText
+        );
 
         let stillMetadata: Awaited<ReturnType<typeof analyzeMedia>> | undefined;
         try {
           this.status = "原始字节扫描完成，正在调用 metaprobe 分析静态图";
-          stillMetadata = await analyzeMedia(file, { platform: "mp" }, {
-            includeRawExif: true,
-            visualAnalysis: false,
-          });
+          stillMetadata = await analyzeMedia(
+            file,
+            { platform: "mp" },
+            {
+              includeRawExif: true,
+              visualAnalysis: false,
+            }
+          );
           this.metaprobeText = JSON.stringify(stillMetadata, null, 2);
           diagnostics.metaprobeStillImage = stillMetadata;
-          console.info("[live-photo] metaprobe still-image result", this.metaprobeText);
+          console.info(
+            "[live-photo] metaprobe still-image result",
+            this.metaprobeText
+          );
         } catch (reason) {
-          const message = reason instanceof Error ? `${reason.name}: ${reason.message}` : String(reason);
+          const message =
+            reason instanceof Error
+              ? `${reason.name}: ${reason.message}`
+              : String(reason);
           diagnostics.metaprobeStillImageError = message;
           this.metaprobeText = JSON.stringify({ error: message }, null, 2);
-          console.error("[live-photo] metaprobe still-image failed", JSON.stringify({ error: message, stack: reason instanceof Error ? reason.stack : undefined }, null, 2));
+          console.error(
+            "[live-photo] metaprobe still-image failed",
+            JSON.stringify(
+              {
+                error: message,
+                stack: reason instanceof Error ? reason.stack : undefined,
+              },
+              null,
+              2
+            )
+          );
         }
 
         if (forensic.embeddedVideo) {
           this.status = "发现候选视频容器，正在尝试拆出并再次由 metaprobe 分析";
           if (forensic.embeddedPhoto) {
-            this.photoTemp = await createTemporaryFile(forensic.embeddedPhoto, { platform: "mp" });
+            this.photoTemp = await createTemporaryFile(forensic.embeddedPhoto, {
+              platform: "mp",
+            });
             this.extractedPhotoPath = this.photoTemp.file.path;
             diagnostics.extractedPhoto = {
-              offset: 0,
               bytes: forensic.embeddedPhotoSize,
+              offset: 0,
               path: this.extractedPhotoPath,
             };
             try {
               const photoMetadata = await analyzeMedia(
-                { path: this.extractedPhotoPath, name: "live-photo-extracted.jpg" },
+                {
+                  name: "live-photo-extracted.jpg",
+                  path: this.extractedPhotoPath,
+                },
                 { platform: "mp" },
-                { includeRawExif: true, visualAnalysis: false },
+                { includeRawExif: true, visualAnalysis: false }
               );
               this.extractedPhotoText = JSON.stringify(photoMetadata, null, 2);
               diagnostics.metaprobeExtractedPhoto = photoMetadata;
-              console.info("[live-photo] metaprobe extracted-photo result", this.extractedPhotoText);
+              console.info(
+                "[live-photo] metaprobe extracted-photo result",
+                this.extractedPhotoText
+              );
             } catch (reason) {
-              const message = reason instanceof Error ? `${reason.name}: ${reason.message}` : String(reason);
-              this.extractedPhotoText = JSON.stringify({ error: message }, null, 2);
+              const message =
+                reason instanceof Error
+                  ? `${reason.name}: ${reason.message}`
+                  : String(reason);
+              this.extractedPhotoText = JSON.stringify(
+                { error: message },
+                null,
+                2
+              );
               diagnostics.metaprobeExtractedPhotoError = message;
-              console.error("[live-photo] metaprobe extracted-photo failed", JSON.stringify({ error: message, stack: reason instanceof Error ? reason.stack : undefined }, null, 2));
+              console.error(
+                "[live-photo] metaprobe extracted-photo failed",
+                JSON.stringify(
+                  {
+                    error: message,
+                    stack: reason instanceof Error ? reason.stack : undefined,
+                  },
+                  null,
+                  2
+                )
+              );
             }
           }
-          this.videoTemp = await createTemporaryFile(forensic.embeddedVideo, { platform: "mp" });
+          this.videoTemp = await createTemporaryFile(forensic.embeddedVideo, {
+            platform: "mp",
+          });
           this.extractedVideoPath = this.videoTemp.file.path;
           diagnostics.extractedVideo = {
-            offset: forensic.embeddedVideoOffset,
             bytes: forensic.embeddedVideoSize,
+            offset: forensic.embeddedVideoOffset,
             path: this.extractedVideoPath,
           };
           try {
             const videoMetadata = await analyzeMedia(
-              { path: this.extractedVideoPath, name: "live-photo-extracted.mov" },
+              {
+                name: "live-photo-extracted.mov",
+                path: this.extractedVideoPath,
+              },
               { platform: "mp" },
-              { includeRawExif: true, visualAnalysis: false },
+              { includeRawExif: true, visualAnalysis: false }
             );
             this.extractedVideoText = JSON.stringify(videoMetadata, null, 2);
             diagnostics.metaprobeExtractedVideo = videoMetadata;
             this.status = "候选视频已拆出，metaprobe 已识别其媒体信息";
-            console.info("[live-photo] metaprobe extracted-video result", this.extractedVideoText);
+            console.info(
+              "[live-photo] metaprobe extracted-video result",
+              this.extractedVideoText
+            );
           } catch (reason) {
-            const message = reason instanceof Error ? `${reason.name}: ${reason.message}` : String(reason);
-            this.extractedVideoText = JSON.stringify({ error: message }, null, 2);
+            const message =
+              reason instanceof Error
+                ? `${reason.name}: ${reason.message}`
+                : String(reason);
+            this.extractedVideoText = JSON.stringify(
+              { error: message },
+              null,
+              2
+            );
             diagnostics.metaprobeExtractedVideoError = message;
-            this.status = "发现视频容器并已拆出，但 metaprobe 无法解析该候选文件";
-            console.error("[live-photo] metaprobe extracted-video failed", JSON.stringify({ error: message, stack: reason instanceof Error ? reason.stack : undefined }, null, 2));
+            this.status =
+              "发现视频容器并已拆出，但 metaprobe 无法解析该候选文件";
+            console.error(
+              "[live-photo] metaprobe extracted-video failed",
+              JSON.stringify(
+                {
+                  error: message,
+                  stack: reason instanceof Error ? reason.stack : undefined,
+                },
+                null,
+                2
+              )
+            );
           }
         } else {
           this.status = stillMetadata
@@ -210,21 +250,90 @@ export default defineComponent({
         }
 
         this.forensicsText = JSON.stringify(diagnostics, null, 2);
-        console.info("[live-photo] complete analysis report", this.forensicsText);
+        console.info(
+          "[live-photo] complete analysis report",
+          this.forensicsText
+        );
       } catch (reason) {
-        this.error = reason instanceof Error ? `${reason.name}: ${reason.message}` : String(reason);
+        this.error =
+          reason instanceof Error
+            ? `${reason.name}: ${reason.message}`
+            : String(reason);
         this.status = "分析失败；详细异常已打印到 Console";
-        console.error("[live-photo] analysis failed", JSON.stringify({ error: this.error, stack: reason instanceof Error ? reason.stack : undefined }, null, 2));
+        console.error(
+          "[live-photo] analysis failed",
+          JSON.stringify(
+            {
+              error: this.error,
+              stack: reason instanceof Error ? reason.stack : undefined,
+            },
+            null,
+            2
+          )
+        );
       } finally {
         this.busy = false;
       }
     },
-    async releaseExtractedVideo() {
-      const temp = this.videoTemp;
-      const photoTemp = this.photoTemp;
-      this.videoTemp = null;
-      this.photoTemp = null;
-      await Promise.all([temp?.dispose(), photoTemp?.dispose()]);
+    choosePhoto() {
+      this.error = "";
+      this.status = "正在请求相册原图";
+      uni.chooseMedia({
+        count: 1,
+        fail: (reason) => {
+          this.status = "相册选择未完成";
+          this.error = reason.errMsg || "相册选择失败";
+          console.error("[live-photo] picker failed", JSON.stringify(reason));
+        },
+        mediaType: ["image"],
+        sizeType: ["original"],
+        sourceType: ["album"],
+        success: ({ tempFiles }) => {
+          const selected = tempFiles[0];
+          if (!selected) {
+            this.status = "选择器没有返回文件";
+            return;
+          }
+          const fields = selected as unknown as Record<string, unknown>;
+          const path = selected.tempFilePath;
+          const name =
+            path.split("/").pop() || `selected.${selected.fileType || "img"}`;
+          this.photo = {
+            fields: Object.keys(fields),
+            name,
+            path,
+            pickerByteSize:
+              typeof fields.byteSize === "number" ? fields.byteSize : undefined,
+            pickerSize:
+              typeof fields.size === "number" ? fields.size : undefined,
+          };
+          this.forensics = null;
+          this.forensicsText = "";
+          this.metaprobeText = "";
+          this.extractedVideoPath = "";
+          this.extractedVideoText = "";
+          this.extractedPhotoPath = "";
+          this.extractedPhotoText = "";
+          this.releaseExtractedVideo();
+          this.status = "已取得选择器返回的原图；尚未上传";
+          console.info(
+            "[live-photo] picker result",
+            JSON.stringify(
+              {
+                fileType: selected.fileType,
+                name,
+                path,
+                pickerByteSize: fields.byteSize,
+                pickerSize: fields.size,
+                rawResult: fields,
+                returnedFields: Object.keys(fields),
+              },
+              null,
+              2
+            )
+          );
+        },
+      });
     },
     async clear() {
       await this.releaseExtractedVideo();
@@ -242,9 +351,13 @@ export default defineComponent({
     formatSize(bytes: number) {
       return `${(bytes / (1024 * 1024)).toFixed(2)} MiB (${bytes.toLocaleString()} B)`;
     },
-  },
-  beforeUnmount() {
-    void this.releaseExtractedVideo();
+    async releaseExtractedVideo() {
+      const temp = this.videoTemp;
+      const photoTemp = this.photoTemp;
+      this.videoTemp = null;
+      this.photoTemp = null;
+      await Promise.all([temp?.dispose(), photoTemp?.dispose()]);
+    },
   },
 });
 </script>

@@ -3,9 +3,6 @@ packages:
   - "apps/*"
   - "apps/playground/*"
 nodeLinker: isolated
-overrides:
-  # Local validation of the unpublished mini-program entry; no registry release.
-  metaprobe: link:../metaprobe
 verifyDepsBeforeRun: false
 allowBuilds:
   '@parcel/watcher': false
@@ -26,3 +23,4 @@ minimumReleaseAgeExclude:
   - '@biomejs/cli-win32-arm64@2.5.13'
   - '@biomejs/cli-win32-x64@2.5.13'
   - vite@8.3.0
+  - metaprobe@0.2.0
