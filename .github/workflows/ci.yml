@@ -24,6 +24,12 @@ jobs:
           node-version: 24
           cache: "pnpm"
       - run: pnpm install --frozen-lockfile
+      - name: Inspect metaprobe link
+        run: |
+          ls -ld packages/media/node_modules/metaprobe
+          readlink packages/media/node_modules/metaprobe
+          readlink -f packages/media/node_modules/metaprobe
+          test -f packages/media/node_modules/metaprobe/package.json
       - name: Lint the release package
         run: pnpm exec ultracite check packages/media
       - run: pnpm test
