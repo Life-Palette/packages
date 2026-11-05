@@ -1,7 +1,7 @@
 {
   "name": "@life-palette/uploader",
   "version": "2.0.2",
-  "description": "Presigned direct and multipart uploader for Life Palette: resumable sessions, per-part retries, and completion. Browser-only, framework-agnostic.",
+  "description": "Cross-runtime upload toolkit for Life Palette with isolated Web, uni-app, and Expo entry points.",
   "homepage": "https://github.com/Life-Palette/packages/tree/main/packages/uploader#readme",
   "bugs": "https://github.com/Life-Palette/packages/issues",
   "repository": {
@@ -13,10 +13,62 @@
   "sideEffects": false,
   "type": "module",
   "exports": {
+    "./web": {
+      "import": {
+        "types": "./dist/web/index.d.mts",
+        "default": "./dist/web/index.mjs"
+      },
+      "require": {
+        "types": "./dist/web/index.d.cts",
+        "default": "./dist/web/index.cjs"
+      }
+    },
     "./shared": {
       "types": "./dist/shared.d.mts",
       "import": "./dist/shared.mjs",
       "require": "./dist/shared.cjs"
+    },
+    "./core": {
+      "import": {
+        "types": "./dist/core/index.d.mts",
+        "default": "./dist/core/index.mjs"
+      },
+      "require": {
+        "types": "./dist/core/index.d.cts",
+        "default": "./dist/core/index.cjs"
+      }
+    },
+    "./uniapp": {
+      "import": {
+        "types": "./dist/uniapp/index.d.mts",
+        "default": "./dist/uniapp/index.mjs"
+      },
+      "require": {
+        "types": "./dist/uniapp/index.d.cts",
+        "default": "./dist/uniapp/index.cjs"
+      }
+    },
+    "./uniapp/media": {
+      "import": { "types": "./dist/uniapp/media.d.mts", "default": "./dist/uniapp/media.mjs" },
+      "require": { "types": "./dist/uniapp/media.d.cts", "default": "./dist/uniapp/media.cjs" }
+    },
+    "./uniapp/browser": {
+      "import": { "types": "./dist/uniapp/browser.d.mts", "default": "./dist/uniapp/browser.mjs" },
+      "require": { "types": "./dist/uniapp/browser.d.cts", "default": "./dist/uniapp/browser.cjs" }
+    },
+    "./uniapp/*": {
+      "import": {
+        "types": "./dist/uniapp/*.d.mts",
+        "default": "./dist/uniapp/*.mjs"
+      },
+      "require": {
+        "types": "./dist/uniapp/*.d.cts",
+        "default": "./dist/uniapp/*.cjs"
+      }
+    },
+    "./expo": {
+      "import": { "types": "./dist/expo/index.d.mts", "default": "./dist/expo/index.mjs" },
+      "require": { "types": "./dist/expo/index.d.cts", "default": "./dist/expo/index.cjs" }
     },
     ".": {
       "import": {
@@ -34,20 +86,42 @@
   "types": "./dist/index.d.mts",
   "files": [
     "dist",
-    "README.md"
+    "README.md",
+    "docs/uniapp.md"
   ],
   "scripts": {
-    "build": "tsdown",
+    "build": "node scripts/uniapp/prepare-media.mjs && tsdown && node scripts/uniapp/copy-media.mjs",
     "dev": "vitest dev",
     "prepublishOnly": "pnpm build && publint --strict",
     "test": "vitest run",
-    "test:browser": "vitest run --config vitest.browser.config.ts"
+    "test:browser": "vitest run --config vitest.browser.config.ts",
+    "typecheck:uniapp": "tsc --noEmit -p tsconfig.uniapp.json"
   },
-  "dependencies": {
-    "@life-palette/media": "workspace:*",
-    "browser-image-compression": "^2.0.2"
+  "peerDependencies": {
+    "@life-palette/media": "^0.3.0",
+    "blurhash": "^2.0.5",
+    "browser-image-compression": "^2.0.2",
+    "expo-file-system": ">=54",
+    "metaprobe": "^0.2.0",
+    "spark-md5": "^3.0.2"
+  },
+  "peerDependenciesMeta": {
+    "@life-palette/media": { "optional": true },
+    "blurhash": { "optional": true },
+    "browser-image-compression": { "optional": true },
+    "expo-file-system": { "optional": true },
+    "metaprobe": { "optional": true },
+    "spark-md5": { "optional": true }
   },
   "devDependencies": {
+    "@life-palette/media": "workspace:*",
+    "@types/spark-md5": "^3.0.5",
+    "arthash": "^0.5.0",
+    "blurhash": "^2.0.5",
+    "browser-image-compression": "^2.0.2",
+    "expo-file-system": "~58.0.13",
+    "metaprobe": "^0.2.0",
+    "spark-md5": "^3.0.2",
     "@vitest/browser-playwright": "5.0.0",
     "@vitest/coverage-v8": "^5.0.0",
     "attw": "^1.0.0",

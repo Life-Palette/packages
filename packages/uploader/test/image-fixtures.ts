@@ -1,4 +1,4 @@
-import { concatBytes } from "../src/image-metadata";
+import { concatBytes } from "../src/shared/image-metadata";
 /** TIFF with real camera/date/GPS/MakerNote tags, including an opaque manufacturer payload. */
 export function exifTiff(orientation = 6) {
   const bytes = new Uint8Array(512);

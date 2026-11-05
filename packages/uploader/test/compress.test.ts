@@ -1,7 +1,7 @@
 import imageCompression from "browser-image-compression";
 import { describe, expect, it, vi } from "vitest";
-import { compressImage } from "../src/compress";
-import { readImageContainer, replaceExif } from "../src/image-metadata";
+import { compressImage } from "../src/web/compress";
+import { readImageContainer, replaceExif } from "../src/shared/image-metadata";
 import { jpeg, metadataChunk } from "./image-fixtures";
 
 vi.mock("browser-image-compression", () => ({ default: vi.fn() }));

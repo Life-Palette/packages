@@ -1,5 +1,5 @@
 // biome-ignore-all lint/suspicious/noBitwiseOperators: JPEG and TIFF container fields require byte-level decoding.
-import { openUploadFile, type UploadFile } from "@life-palette/uploader-uniapp";
+import { openUploadFile, type UploadFile } from "@life-palette/uploader/uniapp";
 
 export interface IsoBmffBox {
   name: string;

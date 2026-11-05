@@ -1,12 +1,12 @@
 import {
   createUploader,
-  prepareUpload,
   type UniPlatform,
   type UploadCancellation,
   type UploadFile,
-} from "@life-palette/uploader-uniapp";
+} from "@life-palette/uploader/uniapp";
+import { prepareUpload } from "@life-palette/uploader/uniapp/media";
 // #ifdef H5
-import { createBrowserMediaAdapter } from "@life-palette/uploader-uniapp/browser";
+import { createBrowserMediaAdapter } from "@life-palette/uploader/uniapp/browser";
 // #endif
 
 export interface UploadWorkflowOptions {
@@ -66,4 +66,4 @@ export async function uploadMediaFile(
   }
 }
 
-export { analyzeMedia, prepareUpload } from "@life-palette/uploader-uniapp";
+export { analyzeMedia, prepareUpload } from "@life-palette/uploader/uniapp/media";

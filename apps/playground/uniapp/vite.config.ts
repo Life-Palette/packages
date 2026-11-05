@@ -4,6 +4,12 @@ import { defineConfig } from "vite";
 
 export default defineConfig({
   plugins: [uni()],
+  // arthash loads its WASM relative to import.meta.url. Vite's dependency
+  // optimizer relocates that module under /node_modules/.vite/deps and the
+  // sibling WASM URL then resolves to the SPA fallback HTML instead.
+  optimizeDeps: {
+    exclude: ["arthash"],
+  },
   resolve: {
     alias: [
       {
@@ -24,7 +30,7 @@ export default defineConfig({
         find: /^@life-palette\/uploader\/shared$/,
         replacement: resolve(
           import.meta.dirname,
-          "../../../packages/uploader/src/shared.ts"
+          "../../../packages/uploader/src/shared/index.ts"
         ),
       },
       {
@@ -35,17 +41,24 @@ export default defineConfig({
         ),
       },
       {
-        find: /^@life-palette\/uploader-uniapp\/browser$/,
+        find: /^@life-palette\/uploader\/uniapp\/browser$/,
         replacement: resolve(
           import.meta.dirname,
-          "../../../packages/uploader-uniapp/src/browser.ts"
+          "../../../packages/uploader/src/uniapp/browser.ts"
         ),
       },
       {
-        find: /^@life-palette\/uploader-uniapp$/,
+        find: /^@life-palette\/uploader\/uniapp\/media$/,
         replacement: resolve(
           import.meta.dirname,
-          "../../../packages/uploader-uniapp/src/index.ts"
+          "../../../packages/uploader/src/uniapp/media.ts"
+        ),
+      },
+      {
+        find: /^@life-palette\/uploader\/uniapp$/,
+        replacement: resolve(
+          import.meta.dirname,
+          "../../../packages/uploader/src/uniapp/index.ts"
         ),
       },
     ],

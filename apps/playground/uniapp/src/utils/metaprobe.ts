@@ -1,4 +1,4 @@
-import { getChunkRanges, openUploadFile } from "@life-palette/uploader-uniapp";
+import { getChunkRanges, openUploadFile } from "@life-palette/uploader/uniapp";
 import init, {
   extractMeta,
   extractMetaBatch,

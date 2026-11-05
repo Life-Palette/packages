@@ -1,5 +1,5 @@
 import { describe, expect, it, vi } from "vitest";
-import { createUploader, type UploadSession } from "../src/uploader";
+import { createUploader, type UploadSession } from "../src/web/uploader";
 
 function response(body: unknown, status = 200, headers?: HeadersInit) {
   return new Response(JSON.stringify(body), { headers, status });

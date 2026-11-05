@@ -3,7 +3,7 @@ import {
   createTemporaryFile,
   openUploadFile,
   type TemporaryFile,
-} from "@life-palette/uploader-uniapp";
+} from "@life-palette/uploader/uniapp";
 import { defineComponent } from "vue";
 import {
   inspectLivePhotoBytes as inspectLivePhoto,

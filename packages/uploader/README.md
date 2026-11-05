@@ -1,11 +1,11 @@
 # @life-palette/uploader
 
-Browser uploader for the Life Palette presigned upload contract. Direct and concurrent multipart uploads support resumable sessions, per-part retries, instant uploads by checksum, and cancellation.
+Cross-runtime upload toolkit for the Life Palette presigned upload contract. Browser, uni-app, and Expo integrations have separate entry points.
 
 ## Install
 
 ```bash
-pnpm add @life-palette/uploader @life-palette/media
+pnpm add @life-palette/uploader
 ```
 
 ## Usage
@@ -30,6 +30,45 @@ const result = await uploader.upload(processed, {
 });
 console.log(result.uid, result.url);
 await uploader.abort(uploadId);
+```
+
+Platform-specific entry points are isolated. Import only the runtime you use:
+
+```ts
+import { createUploader } from "@life-palette/uploader/web";
+import { chooseImages } from "@life-palette/uploader/uniapp";
+import { createExpoUploader } from "@life-palette/uploader/expo";
+```
+
+Platform integrations are optional peers, so installing the package does not
+automatically install browser compression, UniApp, Expo, or media-analysis
+packages. Install the peers listed in the corresponding platform section only
+when using that feature. The default export remains the existing Web API.
+
+### Optional platform dependencies
+
+- `/core` and `/expo` do not load browser or uni-app modules. Expo uses the
+  `expo-file-system` version compatible with the app's SDK.
+- `/uniapp` on H5 and `/web` checksum fallback use `spark-md5`; Web compression
+  uses `browser-image-compression`. Add only the features used:
+  `pnpm add spark-md5 browser-image-compression`.
+- `@life-palette/media` is needed only when an app also performs media analysis
+  and sends the result as upload metadata.
+- `/uniapp/media` uses `@life-palette/media`, `blurhash`, and `metaprobe`:
+  `pnpm add @life-palette/media blurhash metaprobe`.
+- `/expo` uses the Expo SDK already installed by an Expo app. Install the
+  compatible `expo-file-system` version with `npx expo install expo-file-system`.
+
+Expo can use the shared upload protocol with its own native file reader:
+
+```ts
+import { createExpoUploader } from "@life-palette/uploader/expo";
+
+const uploader = createExpoUploader({
+  apiBaseUrl: "https://api.example.com/api/v1",
+  getToken: () => accessToken,
+});
+const result = await uploader.upload({ path: asset.uri, name: asset.fileName ?? "photo" });
 ```
 
 The upload sequence is `POST /uploads`, `PUT` to presigned URLs, and

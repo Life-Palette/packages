@@ -12,7 +12,7 @@ await import(
   pathToFileURL(
     resolve(
       appRoot,
-      "../../../packages/uploader-uniapp/scripts/prepare-media.mjs"
+      "../../../packages/uploader/scripts/uniapp/prepare-media.mjs"
     )
   ).href
 );
@@ -20,7 +20,7 @@ const uploaderAssets = resolve(appRoot, "src/static/uploader-uniapp");
 await mkdir(uploaderAssets, { recursive: true });
 for (const name of ["metaprobe.wasm", "arthash.wasm"]) {
   await copyFile(
-    resolve(appRoot, "../../../packages/uploader-uniapp/src/generated", name),
+    resolve(appRoot, "../../../packages/uploader/src/uniapp/generated", name),
     resolve(uploaderAssets, name)
   );
 }

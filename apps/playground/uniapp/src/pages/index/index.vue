@@ -13,7 +13,7 @@ import {
   type UploadedFile,
   type UploadFile,
   uploadFormFile,
-} from "@life-palette/uploader-uniapp";
+} from "@life-palette/uploader/uniapp";
 import { onMounted, ref, watch } from "vue";
 import { uploadMediaFile } from "../../utils/upload-workflow";
 

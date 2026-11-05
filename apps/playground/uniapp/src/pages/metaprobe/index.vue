@@ -1,5 +1,5 @@
 <script lang="ts">
-import type { MediaAnalysisResult } from "@life-palette/uploader-uniapp";
+import type { MediaAnalysisResult } from "@life-palette/uploader/uniapp/media";
 import { defineComponent } from "vue";
 import {
   runMetaprobeChecks,

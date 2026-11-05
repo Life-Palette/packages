@@ -1,6 +1,6 @@
 import { describe, expect, it } from "vitest";
-import { compressImage } from "../src/compress";
-import { readImageContainer, replaceExif } from "../src/image-metadata";
+import { compressImage } from "../src/web/compress";
+import { readImageContainer, replaceExif } from "../src/shared/image-metadata";
 import { exifTiff, metadataChunk } from "./image-fixtures";
 
 async function photo(kind: "jpeg" | "png" | "webp", orientation = 6) {

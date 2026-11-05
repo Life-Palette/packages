@@ -3,17 +3,29 @@ import { defineConfig } from "vitest/config";
 
 export default defineConfig({
   resolve: {
-    alias: {
-      "@life-palette/media": fileURLToPath(
-        new URL("../media/src/index.ts", import.meta.url)
-      ),
-      metaprobe: fileURLToPath(
-        new URL(
-          "../media/node_modules/metaprobe/wasm/index.js",
-          import.meta.url
-        )
-      ),
-    },
+    alias: [
+      {
+        find: /^@life-palette\/media\/shared$/,
+        replacement: fileURLToPath(
+          new URL("../media/src/shared.ts", import.meta.url)
+        ),
+      },
+      {
+        find: "@life-palette/media",
+        replacement: fileURLToPath(
+          new URL("../media/src/index.ts", import.meta.url)
+        ),
+      },
+      {
+        find: /^metaprobe$/,
+        replacement: fileURLToPath(
+          new URL(
+            "../media/node_modules/metaprobe/wasm/index.js",
+            import.meta.url
+          )
+        ),
+      },
+    ],
   },
   test: {
     environment: "node",

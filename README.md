@@ -13,8 +13,7 @@
 | --- | --- |
 | [@life-palette/utils](./packages/utils) | 纯函数工具集，零运行时依赖 |
 | [@life-palette/media](./packages/media) | 浏览器端媒体分析 |
-| [@life-palette/uploader](./packages/uploader) | Web OSS 上传器（并发分片 + 重试） |
-| [@life-palette/uploader-uniapp](./packages/uploader-uniapp) | uni-app 原生表单上传、预签名直传与分片上传 |
+| [@life-palette/uploader](./packages/uploader) | 跨运行时上传工具；按 `/web`、`/uniapp`、`/expo` 子路径使用 |
 
 ## 开发
 
@@ -65,8 +64,7 @@ apps/
 packages/
 ├── utils/        # @life-palette/utils 纯函数
 ├── media/        # @life-palette/media 媒体分析
-├── uploader/     # @life-palette/uploader Web OSS 上传
-└── uploader-uniapp/ # @life-palette/uploader-uniapp
+└── uploader/     # @life-palette/uploader Web / uni-app / Expo 上传
 ```
 
 ## License
