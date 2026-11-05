@@ -45,7 +45,11 @@ function byteAt(bytes: Bytes, offset: number) {
   return value;
 }
 function read24(bytes: Bytes, offset: number) {
-  return byteAt(bytes, offset) + byteAt(bytes, offset + 1) * 256 + byteAt(bytes, offset + 2) * 65_536;
+  return (
+    byteAt(bytes, offset) +
+    byteAt(bytes, offset + 1) * 256 +
+    byteAt(bytes, offset + 2) * 65_536
+  );
 }
 export function detectImageKind(bytes: Bytes) {
   if (bytes[0] === 255 && bytes[1] === 216) {

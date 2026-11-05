@@ -1,3 +1,8 @@
+export type {
+  UploaderConfig,
+  UploadPut,
+  UploadRequest,
+} from "./core-uploader";
 export {
   createUploader,
   integer,
@@ -5,23 +10,18 @@ export {
   retry,
   uploadMultipart,
 } from "./core-uploader";
+export type { FileReaderAdapter } from "./file-reader";
 export type {
-  UploadPut,
-  UploadRequest,
-  UploaderConfig,
-} from "./core-uploader";
-export {
-  UploadCancellation,
-  UploadCancelledError,
-  UploadError,
-} from "./types";
-export type {
+  UploadedFile,
   UploadFile,
   UploadMetadata,
   UploadOptions,
   UploadPart,
   UploadProgress,
   UploadSession,
-  UploadedFile,
 } from "./types";
-export type { FileReaderAdapter } from "./file-reader";
+export {
+  UploadCancellation,
+  UploadCancelledError,
+  UploadError,
+} from "./types";

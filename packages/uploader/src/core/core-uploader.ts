@@ -29,9 +29,9 @@ export interface UploaderConfig {
   openFile: (file: UploadFile) => Promise<FileReaderAdapter>;
   partConcurrency?: number;
   partRetries?: number;
-  retryDelayMs?: number;
-  request: UploadRequest;
   put: UploadPut;
+  request: UploadRequest;
+  retryDelayMs?: number;
 }
 
 function uploadSettings(config: UploaderConfig, options: UploadOptions) {
@@ -46,7 +46,6 @@ function uploadSettings(config: UploaderConfig, options: UploadOptions) {
 
 /** Unified Go upload contract. Analyze final bytes separately, then supply metadata. */
 export function createUploader(config: UploaderConfig) {
-
   async function transfer(
     session: UploadSession,
     reader: FileReaderAdapter,

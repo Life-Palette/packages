@@ -2,8 +2,8 @@ import { File, FileMode } from "expo-file-system";
 import { createUploader as createCoreUploader } from "../core/core-uploader";
 import type { FileReaderAdapter } from "../core/file-reader";
 import {
-  UploadError,
   type UploadCancellation,
+  UploadError,
   type UploadFile,
 } from "../core/types";
 
@@ -108,17 +108,25 @@ export function createExpoUploader(config: ExpoUploaderConfig) {
       cancellation
     );
     const text = await response.text();
-    let body: { data?: T; details?: unknown; error?: string; message?: string } = {};
+    let body: {
+      data?: T;
+      details?: unknown;
+      error?: string;
+      message?: string;
+    } = {};
     try {
       body = text ? (JSON.parse(text) as typeof body) : {};
     } catch {
       // Keep the HTTP status if the server returned a non-JSON body.
     }
     if (!response.ok) {
-      throw new UploadError(body.message || body.error || "Upload API request failed", {
-        details: body.details,
-        status: response.status,
-      });
+      throw new UploadError(
+        body.message || body.error || "Upload API request failed",
+        {
+          details: body.details,
+          status: response.status,
+        }
+      );
     }
     if (method !== "DELETE" && body.data === undefined) {
       throw new UploadError("Upload API returned an invalid response", {
@@ -144,9 +152,12 @@ export function createExpoUploader(config: ExpoUploaderConfig) {
       cancellation
     );
     if (!response.ok) {
-      throw new UploadError(`Object storage upload failed: ${response.status}`, {
-        status: response.status,
-      });
+      throw new UploadError(
+        `Object storage upload failed: ${response.status}`,
+        {
+          status: response.status,
+        }
+      );
     }
     return response.headers.get("ETag")?.replace(/^"|"$/gu, "") ?? "";
   }

@@ -1,5 +1,5 @@
-import { getUni, nativeCall } from "./transport";
 import type { FileReaderAdapter } from "../core/file-reader";
+import { getUni, nativeCall } from "./transport";
 import {
   type FileSystem,
   type UniPlatform,

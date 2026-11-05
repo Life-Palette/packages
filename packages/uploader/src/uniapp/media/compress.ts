@@ -5,6 +5,12 @@ import {
   sameExif,
 } from "../../shared";
 import { cleanup, createTemporaryFile, type TemporaryFile } from "../file";
+import { getUni, nativeCall } from "../transport";
+import {
+  type UploadCancellation,
+  UploadError,
+  type UploadFile,
+} from "../types";
 import {
   analyzeMedia,
   type MediaAnalysisOptions,
@@ -12,8 +18,6 @@ import {
   type MediaRuntime,
   readMediaBytes,
 } from "./analyze";
-import { getUni, nativeCall } from "../transport";
-import { type UploadCancellation, UploadError, type UploadFile } from "../types";
 
 export interface CompressionOptions {
   cancellation?: UploadCancellation;

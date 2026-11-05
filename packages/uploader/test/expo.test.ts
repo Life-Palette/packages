@@ -2,13 +2,13 @@ import { beforeEach, describe, expect, it, vi } from "vitest";
 import { createExpoUploader } from "../src/expo/index";
 
 const expoFile = vi.hoisted(() => ({
-  paths: [] as string[],
   digest: vi.fn(async (algorithm: string) => {
     if (algorithm !== "MD5") {
       throw new Error(`Unexpected digest algorithm: ${algorithm}`);
     }
     return "expo-md5";
   }),
+  paths: [] as string[],
 }));
 
 vi.mock("expo-file-system", () => ({
@@ -47,37 +47,39 @@ describe("Expo uploader adapter", () => {
 
   it("reads an Expo file and completes a direct upload", async () => {
     const calls: Array<{ init: RequestInit; url: string }> = [];
-    const fetchMock = vi.fn(async (input: string | URL | Request, init: RequestInit = {}) => {
-      const url = String(input);
-      calls.push({ init, url });
-      if (url.endsWith("/uploads")) {
-        return jsonResponse({
-          id: "expo-upload-1",
-          mode: "direct",
-          size: 3,
-          total_parts: 1,
-          upload: {
-            method: "PUT",
+    const fetchMock = vi.fn(
+      async (input: string | URL | Request, init: RequestInit = {}) => {
+        const url = String(input);
+        calls.push({ init, url });
+        if (url.endsWith("/uploads")) {
+          return jsonResponse({
+            id: "expo-upload-1",
+            mode: "direct",
+            size: 3,
+            total_parts: 1,
+            upload: {
+              method: "PUT",
+              url: "https://storage.example.com/photo.png",
+            },
+          });
+        }
+        if (url === "https://storage.example.com/photo.png") {
+          return new Response(null, { headers: { ETag: '"expo-etag"' } });
+        }
+        if (url.endsWith("/uploads/expo-upload-1/complete")) {
+          return jsonResponse({
+            file_md5: "expo-md5",
+            is_private: false,
+            name: "photo.png",
+            size: 3,
+            type: "image/png",
+            uid: "expo-file-1",
             url: "https://storage.example.com/photo.png",
-          },
-        });
+          });
+        }
+        throw new Error(`Unexpected URL: ${url}`);
       }
-      if (url === "https://storage.example.com/photo.png") {
-        return new Response(null, { headers: { ETag: '"expo-etag"' } });
-      }
-      if (url.endsWith("/uploads/expo-upload-1/complete")) {
-        return jsonResponse({
-          file_md5: "expo-md5",
-          is_private: false,
-          name: "photo.png",
-          size: 3,
-          type: "image/png",
-          uid: "expo-file-1",
-          url: "https://storage.example.com/photo.png",
-        });
-      }
-      throw new Error(`Unexpected URL: ${url}`);
-    });
+    );
 
     const uploaded = await createExpoUploader({
       apiBaseUrl: "https://api.example.com/api/v1/",

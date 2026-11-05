@@ -6,8 +6,16 @@ import {
   openUploadFile,
   splitFile,
 } from "../../src/uniapp/file";
-import { nativeCall, uploadFormChunk, uploadFormFile } from "../../src/uniapp/transport";
-import { type UniRuntime, UploadCancellation, UploadError } from "../../src/uniapp/types";
+import {
+  nativeCall,
+  uploadFormChunk,
+  uploadFormFile,
+} from "../../src/uniapp/transport";
+import {
+  type UniRuntime,
+  UploadCancellation,
+  UploadError,
+} from "../../src/uniapp/types";
 import { retry } from "../../src/uniapp/uploader";
 
 afterEach(() => {

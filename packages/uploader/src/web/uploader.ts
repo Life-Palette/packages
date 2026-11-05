@@ -2,20 +2,20 @@ import { createUploader as createCoreUploader } from "../core/core-uploader";
 import type { FileReaderAdapter } from "../core/file-reader";
 import {
   UploadError,
-  type UploadOptions,
   type UploadedFile,
   type UploadFile,
+  type UploadOptions,
 } from "../core/types";
 
+export type { UploadMetadata } from "../core/metadata";
 export type {
-  UploadOptions,
   UploadedFile,
+  UploadOptions,
   UploadPart,
   UploadProgress,
   UploadSession,
 } from "../core/types";
 export { UploadError } from "../core/types";
-export type { UploadMetadata } from "../core/metadata";
 
 export interface UploaderConfig {
   /** API base URL, for example: https://api.example.com/api/v1 */
@@ -79,32 +79,18 @@ function createFetchTransport(config: UploaderConfig) {
     if (cancellation?.aborted) {
       controller.abort();
     }
-    return fetchImpl(url, { ...init, signal: controller.signal }).finally(
-      () => unsubscribe?.()
+    return fetchImpl(url, { ...init, signal: controller.signal }).finally(() =>
+      unsubscribe?.()
     );
   }
 
-  async function request<T>(
-    path: string,
-    method: "POST" | "DELETE",
-    data?: unknown,
+  async function sendRequest(
+    url: string,
+    init: RequestInit,
     cancellation?: UploadOptions["cancellation"]
-  ): Promise<T> {
-    const headers = new Headers({ Accept: "application/json" });
-    const token = config.getToken();
-    if (token) {
-      headers.set("Authorization", `Bearer ${token}`);
-    }
-    if (data !== undefined) {
-      headers.set("Content-Type", "application/json");
-    }
-    let response: Response;
+  ) {
     try {
-      response = await fetchWithCancellation(`${baseUrl}${path}`, {
-        body: data === undefined ? undefined : JSON.stringify(data),
-        headers,
-        method,
-      }, cancellation);
+      return await fetchWithCancellation(url, init, cancellation);
     } catch (error) {
       if (cancellation?.aborted) {
         cancellation.throwIfAborted();
@@ -114,18 +100,33 @@ function createFetchTransport(config: UploaderConfig) {
         { cause: error }
       );
     }
-    const text = await response.text();
-    let body: { data?: T; details?: unknown; error?: string; message?: string } = {};
-    try {
-      body = text ? (JSON.parse(text) as typeof body) : {};
-    } catch {
-      // Preserve the HTTP status when a server returns a non-JSON error body.
-    }
+  }
+
+  async function request<T>(
+    path: string,
+    method: "POST" | "DELETE",
+    data?: unknown,
+    cancellation?: UploadOptions["cancellation"]
+  ): Promise<T> {
+    const headers = requestHeaders(config.getToken(), data);
+    const response = await sendRequest(
+      `${baseUrl}${path}`,
+      {
+        body: data === undefined ? undefined : JSON.stringify(data),
+        headers,
+        method,
+      },
+      cancellation
+    );
+    const body = await parseApiResponse<T>(response);
     if (!response.ok) {
-      throw new UploadError(body.message || body.error || "Upload API request failed", {
-        details: body.details,
-        status: response.status,
-      });
+      throw new UploadError(
+        body.message || body.error || "Upload API request failed",
+        {
+          details: body.details,
+          status: response.status,
+        }
+      );
     }
     if (method !== "DELETE" && body.data === undefined) {
       throw new UploadError("Upload API returned an invalid response", {
@@ -147,11 +148,15 @@ function createFetchTransport(config: UploaderConfig) {
     }
     let response: Response;
     try {
-      response = await fetchWithCancellation(url, {
-        body: data,
-        headers,
-        method: "PUT",
-      }, cancellation);
+      response = await fetchWithCancellation(
+        url,
+        {
+          body: data,
+          headers,
+          method: "PUT",
+        },
+        cancellation
+      );
     } catch (error) {
       if (cancellation?.aborted) {
         cancellation.throwIfAborted();
@@ -162,13 +167,49 @@ function createFetchTransport(config: UploaderConfig) {
       );
     }
     if (!response.ok) {
-      throw new UploadError(`Object storage upload failed: ${response.status}`, {
-        status: response.status,
-      });
+      throw new UploadError(
+        `Object storage upload failed: ${response.status}`,
+        {
+          status: response.status,
+        }
+      );
     }
     return response.headers.get("ETag")?.replace(/^"|"$/gu, "") ?? "";
   }
   return { put, request };
+}
+
+function requestHeaders(token: string | null, data: unknown) {
+  const headers = new Headers({ Accept: "application/json" });
+  if (token) {
+    headers.set("Authorization", `Bearer ${token}`);
+  }
+  if (data !== undefined) {
+    headers.set("Content-Type", "application/json");
+  }
+  return headers;
+}
+
+async function parseApiResponse<T>(response: Response): Promise<{
+  data?: T;
+  details?: unknown;
+  error?: string;
+  message?: string;
+}> {
+  const text = await response.text();
+  try {
+    return text
+      ? (JSON.parse(text) as {
+          data?: T;
+          details?: unknown;
+          error?: string;
+          message?: string;
+        })
+      : {};
+  } catch {
+    // Preserve the HTTP status when a server returns a non-JSON error body.
+    return {};
+  }
 }
 
 export function createUploader(config: UploaderConfig) {

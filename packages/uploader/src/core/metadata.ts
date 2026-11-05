@@ -4,7 +4,7 @@ export interface UploadMetadata {
     md5: string;
     size: number;
   };
-  schema_version: number;
   image?: object;
+  schema_version: number;
   video?: object;
 }

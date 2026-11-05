@@ -1,7 +1,10 @@
 import { extractMetaFastSized } from "metaprobe/miniprogram";
 import { beforeEach, describe, expect, it, vi } from "vitest";
 import { initArthash } from "../../src/uniapp/generated/arthash.js";
-import { analyzeMedia, type MediaRuntime } from "../../src/uniapp/media/analyze";
+import {
+  analyzeMedia,
+  type MediaRuntime,
+} from "../../src/uniapp/media/analyze";
 import { UploadCancellation } from "../../src/uniapp/types";
 
 vi.mock("metaprobe/miniprogram", () => ({

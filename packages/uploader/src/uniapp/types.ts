@@ -1,12 +1,16 @@
-export { UploadCancellation, UploadCancelledError, UploadError } from "../core/types";
 export type {
+  UploadedFile,
   UploadFile,
   UploadMetadata,
   UploadOptions,
   UploadPart,
   UploadProgress,
   UploadSession,
-  UploadedFile,
+} from "../core/types";
+export {
+  UploadCancellation,
+  UploadCancelledError,
+  UploadError,
 } from "../core/types";
 export class PermissionError extends Error {
   readonly permission: string;

@@ -1,8 +1,5 @@
 import { createUploader as createCoreUploader } from "../core/core-uploader";
-import {
-  type FileConfig,
-  openUploadFile,
-} from "./file";
+import { type FileConfig, openUploadFile } from "./file";
 import { createTransport, type TransportConfig } from "./transport";
 import type { UploadFile } from "./types";
 
@@ -20,9 +17,9 @@ export function createUploader(config: UploaderConfig) {
     openFile: (file: UploadFile) => openUploadFile(file, config),
     partConcurrency: config.partConcurrency,
     partRetries: config.partRetries,
+    put: transport.put,
     request: transport.request,
     retryDelayMs: config.retryDelayMs,
-    put: transport.put,
   });
 }
 

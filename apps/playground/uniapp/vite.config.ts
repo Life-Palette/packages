@@ -3,13 +3,13 @@ import uni from "@dcloudio/vite-plugin-uni";
 import { defineConfig } from "vite";
 
 export default defineConfig({
-  plugins: [uni()],
   // arthash loads its WASM relative to import.meta.url. Vite's dependency
   // optimizer relocates that module under /node_modules/.vite/deps and the
   // sibling WASM URL then resolves to the SPA fallback HTML instead.
   optimizeDeps: {
     exclude: ["arthash"],
   },
+  plugins: [uni()],
   resolve: {
     alias: [
       {
