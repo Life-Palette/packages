@@ -1,5 +1,11 @@
 # @life-palette/uploader
 
+## 2.1.0
+
+### Minor Changes
+
+- [`c9d75ad`](https://github.com/Life-Palette/packages/commit/c9d75ad226bec5f311dc28f1fe9dfff5b99a19b0) Thanks [@IceyWu](https://github.com/IceyWu)! - Add isolated uni-app and Expo entry points. Uni-app media analysis is exposed from a separate subpath so upload-only consumers do not load media-analysis runtimes.
+
 ## 2.0.2
 
 ### Patch Changes
