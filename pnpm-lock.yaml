@@ -406,10 +406,23 @@ importers:
         version: 5.0.0(@types/node@22.20.2)(@vitest/browser-playwright@5.0.0)(@vitest/coverage-v8@5.0.0)(@vitest/ui@5.0.0)(jsdom@27.4.0(supports-color@8.1.1))(vite@7.3.6(@types/node@22.20.2)(jiti@2.6.1)(lightningcss@1.33.0)(sass@1.105.1)(terser@5.51.2)(yaml@2.9.0))
 
   packages/uploader:
-    devDependencies:
+    dependencies:
       '@life-palette/media':
-        specifier: workspace:*
-        version: link:../media
+        specifier: ^0.3.0
+        version: 0.3.0(expo-modules-core@58.0.29(react-native@0.88.1(react@19.3.1)(supports-color@8.1.1))(react@19.3.1))(expo@58.0.22(react-native@0.88.1(react@19.3.1)(supports-color@8.1.1))(react@19.3.1)(supports-color@8.1.1)(typescript@5.9.3))(react-native@0.88.1(react@19.3.1)(supports-color@8.1.1))
+      blurhash:
+        specifier: ^2.0.5
+        version: 2.0.5
+      browser-image-compression:
+        specifier: ^2.0.2
+        version: 2.0.2
+      metaprobe:
+        specifier: ^0.2.0
+        version: 0.2.0(expo-modules-core@58.0.29(react-native@0.88.1(react@19.3.1)(supports-color@8.1.1))(react@19.3.1))(expo@58.0.22(react-native@0.88.1(react@19.3.1)(supports-color@8.1.1))(react@19.3.1)(supports-color@8.1.1)(typescript@5.9.3))(react-native@0.88.1(react@19.3.1)(supports-color@8.1.1))
+      spark-md5:
+        specifier: ^3.0.2
+        version: 3.0.2
+    devDependencies:
       '@types/spark-md5':
         specifier: ^3.0.5
         version: 3.0.5
@@ -425,27 +438,15 @@ importers:
       attw:
         specifier: ^1.0.0
         version: 1.0.0
-      blurhash:
-        specifier: ^2.0.5
-        version: 2.0.5
-      browser-image-compression:
-        specifier: ^2.0.2
-        version: 2.0.2
       expo-file-system:
         specifier: ~58.0.13
         version: 58.0.13(expo@58.0.22(react-native@0.88.1(react@19.3.1)(supports-color@8.1.1))(react@19.3.1)(supports-color@8.1.1)(typescript@5.9.3))(react-native@0.88.1(react@19.3.1)(supports-color@8.1.1))
-      metaprobe:
-        specifier: ^0.2.0
-        version: 0.2.0(expo-modules-core@58.0.29(react-native@0.88.1(react@19.3.1)(supports-color@8.1.1))(react@19.3.1))(expo@58.0.22(react-native@0.88.1(react@19.3.1)(supports-color@8.1.1))(react@19.3.1)(supports-color@8.1.1)(typescript@5.9.3))(react-native@0.88.1(react@19.3.1)(supports-color@8.1.1))
       playwright:
         specifier: 1.63.0
         version: 1.63.0
       publint:
         specifier: ^0.3.24
         version: 0.3.24
-      spark-md5:
-        specifier: ^3.0.2
-        version: 3.0.2
       tsdown:
         specifier: ^0.23.0
         version: 0.23.0(@volar/typescript@2.4.28(typescript@5.9.3))(publint@0.3.24)(typescript@5.9.3)(vue-tsc@3.2.8(typescript@5.9.3))
@@ -2514,6 +2515,9 @@ packages:
 
   '@lezer/lr@1.4.10':
     resolution: {integrity: sha512-rnCpTIBafOx4mRp43xOxDJbFipJm/c0cia/V5TiGlhmMa+wsSdoGmUN3w5Bqrks/09Q/D4tNAmWaT8p6NRi77A==}
+
+  '@life-palette/media@0.3.0':
+    resolution: {integrity: sha512-OMlbeaeAY+l6C+qb2E47lUnlG2wqs0nYYzxPo1mkRnnaeDFlurvSAtml9TqWd6wMlB6zQXK0PgEalW7eG1/fIg==}
 
   '@manypkg/find-root@3.1.0':
     resolution: {integrity: sha512-BcSqCyKhBVZ5YkSzOiheMCV41kqAFptW6xGqYSTjkVTl9XQpr+pqHhwgGCOHQtjDCv7Is6EFyA14Sm5GVbVABA==}
@@ -11043,6 +11047,18 @@ snapshots:
   '@lezer/lr@1.4.10':
     dependencies:
       '@lezer/common': 1.5.2
+
+  '@life-palette/media@0.3.0(expo-modules-core@58.0.29(react-native@0.88.1(react@19.3.1)(supports-color@8.1.1))(react@19.3.1))(expo@58.0.22(react-native@0.88.1(react@19.3.1)(supports-color@8.1.1))(react@19.3.1)(supports-color@8.1.1)(typescript@5.9.3))(react-native@0.88.1(react@19.3.1)(supports-color@8.1.1))':
+    dependencies:
+      arthash: 0.5.0
+      base64-js: 1.5.1
+      blurhash: 2.0.5
+      metaprobe: 0.2.0(expo-modules-core@58.0.29(react-native@0.88.1(react@19.3.1)(supports-color@8.1.1))(react@19.3.1))(expo@58.0.22(react-native@0.88.1(react@19.3.1)(supports-color@8.1.1))(react@19.3.1)(supports-color@8.1.1)(typescript@5.9.3))(react-native@0.88.1(react@19.3.1)(supports-color@8.1.1))
+      spark-md5: 3.0.2
+    transitivePeerDependencies:
+      - expo
+      - expo-modules-core
+      - react-native
 
   '@manypkg/find-root@3.1.0':
     dependencies:

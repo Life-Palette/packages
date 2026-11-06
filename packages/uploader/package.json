@@ -115,48 +115,30 @@
     "test:browser": "vitest run --config vitest.browser.config.ts",
     "typecheck:uniapp": "tsc --noEmit -p tsconfig.uniapp.json"
   },
+  "dependencies": {
+    "@life-palette/media": "^0.3.0",
+    "blurhash": "^2.0.5",
+    "browser-image-compression": "^2.0.2",
+    "metaprobe": "^0.2.0",
+    "spark-md5": "^3.0.2"
+  },
   "devDependencies": {
-    "@life-palette/media": "workspace:*",
     "@types/spark-md5": "^3.0.5",
     "@vitest/browser-playwright": "5.0.0",
     "@vitest/coverage-v8": "^5.0.0",
     "arthash": "^0.5.0",
     "attw": "^1.0.0",
-    "blurhash": "^2.0.5",
-    "browser-image-compression": "^2.0.2",
     "expo-file-system": "~58.0.13",
-    "metaprobe": "^0.2.0",
     "playwright": "1.63.0",
     "publint": "^0.3.24",
-    "spark-md5": "^3.0.2",
     "tsdown": "^0.23.0",
     "vitest": "^5.0.0"
   },
   "peerDependencies": {
-    "@life-palette/media": "^0.3.0",
-    "blurhash": "^2.0.5",
-    "browser-image-compression": "^2.0.2",
-    "expo-file-system": ">=54",
-    "metaprobe": "^0.2.0",
-    "spark-md5": "^3.0.2"
+    "expo-file-system": ">=54"
   },
   "peerDependenciesMeta": {
-    "@life-palette/media": {
-      "optional": true
-    },
-    "blurhash": {
-      "optional": true
-    },
-    "browser-image-compression": {
-      "optional": true
-    },
     "expo-file-system": {
-      "optional": true
-    },
-    "metaprobe": {
-      "optional": true
-    },
-    "spark-md5": {
       "optional": true
     }
   },

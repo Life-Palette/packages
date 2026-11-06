@@ -11,7 +11,7 @@ const packages = [
     name: "@life-palette/media",
   },
   {
-    deps: "@life-palette/media · browser-image-compression (optional peer)",
+    deps: "@life-palette/media · browser-image-compression · spark-md5 · Expo SDK peer",
     desc: "OSS 上传：并发分片、单片重试、断点续传 etags、批量并发、实况照片配对、URL 工具",
     name: "@life-palette/uploader",
   },

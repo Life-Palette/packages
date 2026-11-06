@@ -11,8 +11,11 @@ pnpm add @life-palette/uploader
 ## Usage
 
 ```ts
-import { analyzeMedia } from "@life-palette/media";
-import { compressImage, createUploader } from "@life-palette/uploader";
+import {
+  analyzeMedia,
+  compressImage,
+  createUploader,
+} from "@life-palette/uploader/web";
 
 const uploader = createUploader({
   apiBaseUrl: "https://api.example.com/api/v1",
@@ -40,22 +43,19 @@ import { chooseImages } from "@life-palette/uploader/uniapp";
 import { createExpoUploader } from "@life-palette/uploader/expo";
 ```
 
-Platform integrations are optional peers, so installing the package does not
-automatically install browser compression, UniApp, Expo, or media-analysis
-packages. Install the peers listed in the corresponding platform section only
-when using that feature. The default export remains the existing Web API.
+Platform-specific entry points are isolated. Browser compression, checksums,
+and media-analysis dependencies are installed with the package. The Expo
+adapter is the exception: its `expo-file-system` peer must match the host Expo
+SDK and should be installed with `npx expo install expo-file-system`. The
+default export remains the existing Web API.
 
 ### Optional platform dependencies
 
-- `/core` and `/expo` do not load browser or uni-app modules. Expo uses the
-  `expo-file-system` version compatible with the app's SDK.
-- `/uniapp` on H5 and `/web` checksum fallback use `spark-md5`; Web compression
-  uses `browser-image-compression`. Add only the features used:
-  `pnpm add spark-md5 browser-image-compression`.
-- `@life-palette/media` is needed only when an app also performs media analysis
-  and sends the result as upload metadata.
-- `/uniapp/media` uses `@life-palette/media`, `blurhash`, and `metaprobe`:
-  `pnpm add @life-palette/media blurhash metaprobe`.
+- `/core` does not load browser or uni-app modules. Web compression,
+  checksums, and `analyzeMedia` are included with the package and loaded through
+  the Web entry point.
+- `/uniapp/media` and `/uniapp/browser` dependencies are included with the
+  package. The UniApp runtime itself is provided by the host app.
 - `/expo` uses the Expo SDK already installed by an Expo app. Install the
   compatible `expo-file-system` version with `npx expo install expo-file-system`.
 
@@ -93,7 +93,7 @@ PNG text chunks and ICC profiles are not covered by the EXIF guarantee. Failures
 instead of silently uploading an uncompressed image.
 
 Analysis and compression are outside the transport API. If neither `checksum`
-nor `metadata.basic.md5` is supplied, the media package is loaded lazily to hash
+nor `metadata.basic.md5` is supplied, the included `spark-md5` fallback hashes
 the original file. Progress stages are `md5`, `initializing`, `uploading`, and
 `completing`, with stage-local percentages.
 
@@ -102,6 +102,7 @@ the original file. Progress stages are `md5`, `initializing`, `uploading`, and
 | Export | Description |
 | --- | --- |
 | `createUploader(config)` | Returns `{ upload, abort }` |
+| `analyzeMedia(file, options)` | Analyze Web media using the included media package |
 | `compressImage`, `CompressionOptions` | Optional image compression before analysis |
 | `UploadedFile`, `UploadOptions`, `UploadProgress`, `UploaderConfig`, `UploadSession`, `UploadPart` | Current contract types |
 | `UploadError` | Error with optional HTTP status and details |
